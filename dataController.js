@@ -1,0 +1,1526 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * OPTIPULSELAB DATA CONTROLLER MODULE
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Self-contained, framework-free data layer for the OptiPulseLab dashboard.
+ *
+ * Architecture:
+ *   1. OHLCVGenerator  — deterministic pseudo-random 30-day OHLCV for 5 BIST stocks
+ *   2. StrategyEngine   — SMA-crossover dummy strategy producing a trade list
+ *   3. MetricsCalculator — Net Profit, Max Drawdown, Sharpe Ratio, Win Rate
+ *   4. ChartPathBuilder — SVG path strings from equity / drawdown curves
+ *
+ * All functions are pure; no DOM access. The public API is exposed via
+ * window.DataController so app.js can consume it without bundler imports.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+'use strict';
+
+const DataController = (() => {
+
+    /* ──────────────── Constants ──────────────── */
+    // (19 Temmuz 2026, on ikinci oturum — "tam geçmiş erişimi") 30 -> 750
+    // işlem günü (~3 yıl) yükseltildi: bu, backend tamamen erişilemez
+    // olduğunda devreye giren SİMÜLE yedek veri üreticisidir (gerçek veri
+    // yolu artık main.py'de period="max" ile TÜM gerçek geçmişi çekiyor —
+    // bkz. main.py /api/v1/ohlcv). Bu sayı sadece o nadir yedek senaryoda
+    // kaç günlük simüle mum üretileceğini belirler.
+    const TRADING_DAYS = 750;
+    const ANNUALIZE_FACTOR = 252;               // trading days / year
+    const RISK_FREE_DAILY = 0.05 / ANNUALIZE_FACTOR; // ~5 % annual risk-free
+
+    /* Stock universe with realistic BIST parameters (TRY-denominated).
+     * basePrice values are approximate real BIST100 closing prices gathered
+     * via web research in July 2026 (Midas/Fintables/TradingView/Investing.com,
+     * cross-checked across sources) — this is what anchors the demo's
+     * simulated live price walk, so it needs to actually resemble reality
+     * instead of drifting to an arbitrary/hash-based number (see the 17
+     * Temmuz 2026 altıncı oturum project note for the bug this fixes: BIST100
+     * symbols outside a tiny 5-stock hardcoded list were falling back to a
+     * flat ₺100 seed, e.g. AEFES showing ₺108 instead of its real ~₺20).
+     * These are still simulation seeds, not a live feed — treat as ballpark,
+     * not tick-accurate, and expect them to go stale over time.
+     *
+     * (19 Temmuz 2026, on birinci oturum — aylık fiyat tazeleme rutini)
+     * 72 sembolün basePrice'ı Midas/Google Finance/TradingView'dan 19 Temmuz
+     * 2026'da toplanan taze verilerle güncellendi (bkz. proje dokümanındaki
+     * bist100-price-anchors-2026-07-19.md). Kalan 25 sembol (AGESA, AKCNS,
+     * AKFGY, ALBRK, BUCIM, CEMTS, ECZYT, GLYHO, GSDHO, GWIND, IPEKE, ISDMR,
+     * ISGYO, IZMDC, KARDMD, KMPUR, KORDS, KOZAA, KOZAL, PENTA, SAYAS, SDTTR,
+     * TEZOL, VESBE, YYLGD) bu araştırma turunda kapsanmadı, eski değerleriyle
+     * bırakıldı — tahmin/uydurma değer yazılmadı (bkz. altıncı oturumdaki
+     * "gerçek vs kozmetik" ilkesi). AKSEN (+%15.1) eşiğin hemen üzerinde
+     * ama iki bağımsız kaynakça (Midas + Google Finance) doğrulandığı için
+     * uygulandı. */
+    const STOCK_PROFILES = {
+        AEFES: { name: 'Anadolu Efes', sector: 'Gıda, İçecek',  basePrice: 20.80, volatility: 0.026, drift: 0.0005, avgVolume: 42120000, logoDomain: 'anadoluefes.com.tr' },
+        AGESA: { name: 'Agesa Hayat ve Emeklilik', sector: 'Sigorta', basePrice: 240.2, volatility: 0.018, drift: 0.0008, avgVolume: 1159499, logoDomain: 'agesa.com.tr' },
+        AKBNK: { name: 'Akbank', sector: 'Bankacılık',  basePrice: 66.50, volatility: 0.021, drift: 0.0008, avgVolume: 16362000, logoDomain: 'akbank.com' },
+        AKCNS: { name: 'Akçansa Çimento', sector: 'Çimento', basePrice: 238.05, volatility: 0.015, drift: 0.0005, avgVolume: 1616999, logoDomain: 'akcansa.com.tr' },
+        AKFGY: { name: 'Akfen GYO', sector: 'Gayrimenkul Yatırım Ortaklığı', basePrice: 2.78, volatility: 0.036, drift: 0.0007, avgVolume: 121500000, logoDomain: 'akfengyo.com.tr' },
+        AKSEN: { name: 'Aksa Enerji', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 106.00, volatility: 0.018, drift: 0.0007, avgVolume: 5820000, logoDomain: 'aksaenerji.com.tr' },
+        ALARK: { name: 'Alarko Holding', sector: 'Holding ve Yatırım',  basePrice: 104.60, volatility: 0.023, drift: 0.0006, avgVolume: 6378000, logoDomain: 'alarko.com.tr' },
+        ALBRK: { name: 'Albaraka Türk', sector: 'Bankacılık', basePrice: 8.13, volatility: 0.03, drift: 0.0007, avgVolume: 110160000, logoDomain: 'albaraka.com.tr' },
+        ALFAS: { name: 'Alfa Solar Enerji', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 44.96, volatility: 0.029, drift: 0.0008, avgVolume: 24282000, logoDomain: 'alfasolarenerji.com' },
+        ARCLK: { name: 'Arçelik', sector: 'Dayanıklı Tüketim',  basePrice: 97.60, volatility: 0.017, drift: 0.0008, avgVolume: 4470000, logoDomain: 'arcelik.com.tr' },
+        // (30 Ağustos 2026 — "Aselsan logosu yanlış/düşük kaliteli" geri
+        // bildirimi) `logoDomain` yanlıştı: aselsan.com Aselsan'ın resmi
+        // sitesi DEĞİL — şirketin gerçek kurumsal alan adı aselsan.com.tr
+        // (bkz. aselsan.com.tr/en). Logo.dev muhtemelen aselsan.com için
+        // alakasız/düşük kaliteli bir görsel (o alan adının kendi favicon'u
+        // vb.) döndürüyordu. Doğru alan adına düzeltildi.
+        ASELS: { name: 'Aselsan', sector: 'Savunma Sanayii',  basePrice: 351.50, volatility: 0.017, drift: 0.0007, avgVolume: 1899000, logoDomain: 'aselsan.com.tr' },
+        ASTOR: { name: 'Astor Enerji', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 286.50, volatility: 0.016, drift: 0.0006, avgVolume: 2059500, logoDomain: 'astoras.com.tr' },
+        BERA: { name: 'Bera Holding', sector: 'Holding ve Yatırım',  basePrice: 14.87, volatility: 0.022, drift: 0.0003, avgVolume: 59490000, logoDomain: 'beraholding.com.tr' },
+        BIMAS: { name: 'BİM Mağazalar', sector: 'Perakende Ticaret',  basePrice: 386.00, volatility: 0.017, drift: 0.0007, avgVolume: 936000, logoDomain: 'bim.com.tr' },
+        BRSAN: { name: 'Borusan Mannesmann', sector: 'Metal Ana Sanayii',  basePrice: 549.50, volatility: 0.015, drift: 0.0005, avgVolume: 1355999, logoDomain: 'borusanmannesmann.com' },
+        BRYAT: { name: 'Borusan Yatırım Pazarlama', sector: 'Holding ve Yatırım',  basePrice: 1810.00, volatility: 0.015, drift: 0.0005, avgVolume: 269000, logoDomain: 'borusanyatirim.com' },
+        BUCIM: { name: 'Bursa Çimento', sector: 'Çimento', basePrice: 5.87, volatility: 0.034, drift: 0.0005, avgVolume: 67320000, logoDomain: 'bursacimento.com.tr' },
+        CANTE: { name: 'Çan2 Termik', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 1.28, volatility: 0.035, drift: 0.0006, avgVolume: 85770000, logoDomain: 'can2termik.com.tr' },
+        CCOLA: { name: 'Coca-Cola İçecek', sector: 'Gıda, İçecek',  basePrice: 87.55, volatility: 0.02, drift: 0.0003, avgVolume: 7464000, logoDomain: 'cci.com.tr' },
+        CEMTS: { name: 'Çemtaş Çelik Makina', sector: 'Metal Ana Sanayii', basePrice: 9.38, volatility: 0.028, drift: 0.0005, avgVolume: 69300000, logoDomain: 'cemtas.com.tr' },
+        CIMSA: { name: 'Çimsa Çimento', sector: 'Çimento',  basePrice: 48.86, volatility: 0.025, drift: 0.0008, avgVolume: 12329999, logoDomain: 'cimsa.com.tr' },
+        CWENE: { name: 'Cw Enerji Mühendislik', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 39.92, volatility: 0.02, drift: 0.0007, avgVolume: 20160000, logoDomain: 'cw-enerji.com' },
+        DOAS: { name: 'Doğuş Otomotiv Servis', sector: 'Otomotiv',  basePrice: 185.00, volatility: 0.021, drift: 0.0004, avgVolume: 7230000, logoDomain: 'dogusotomotiv.com.tr' },
+        DOHOL: { name: 'Doğan Şirketler Grubu', sector: 'Holding ve Yatırım',  basePrice: 21.30, volatility: 0.024, drift: 0.0005, avgVolume: 55530000, logoDomain: 'doganholding.com.tr' },
+        ECILC: { name: 'Eczacıbaşı İlaç', sector: 'İlaç ve Sağlık',  basePrice: 73.50, volatility: 0.018, drift: 0.0007, avgVolume: 16595999, logoDomain: 'eis.com.tr' },
+        ECZYT: { name: 'Eczacıbaşı Yatırım', sector: 'Holding ve Yatırım', basePrice: 349.75, volatility: 0.016, drift: 0.0006, avgVolume: 1318500, logoDomain: 'eczacibasi.com.tr' },
+        EGEEN: { name: 'Ege Endüstri', sector: 'Otomotiv',  basePrice: 5545.00, volatility: 0.015, drift: 0.0005, avgVolume: 209000, logoDomain: 'egeendustri.com.tr' },
+        EKGYO: { name: 'Emlak Konut GYO', sector: 'Gayrimenkul Yatırım Ortaklığı',  basePrice: 20.38, volatility: 0.023, drift: 0.0008, avgVolume: 42435000, logoDomain: 'emlakkonut.com.tr' },
+        ENJSA: { name: 'Enerjisa Enerji', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 102.50, volatility: 0.023, drift: 0.0006, avgVolume: 5994000, logoDomain: 'enerjisa.com.tr' },
+        ENKAI: { name: 'Enka İnşaat', sector: 'İnşaat',  basePrice: 90.70, volatility: 0.018, drift: 0.0003, avgVolume: 3660000, logoDomain: 'enka.com' },
+        EREGL: { name: 'Ereğli Demir Çelik', sector: 'Metal Ana Sanayii',  basePrice: 42.34, volatility: 0.027, drift: 0.0004, avgVolume: 25146000, logoDomain: 'erdemir.com.tr' },
+        EUPWR: { name: 'Europower Enerji', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 87.30, volatility: 0.019, drift: 0.0004, avgVolume: 6258000, logoDomain: 'europowerenerji.com.tr' },
+        FROTO: { name: 'Ford Otomotiv Sanayi', sector: 'Otomotiv',  basePrice: 83.60, volatility: 0.022, drift: 0.0007, avgVolume: 8004000, logoDomain: 'fordotosan.com.tr' },
+        GARAN: { name: 'Garanti Bankası', sector: 'Bankacılık',  basePrice: 126.80, volatility: 0.021, drift: 0.0004, avgVolume: 4206000, logoDomain: 'garantibbva.com.tr' },
+        GENIL: { name: 'Gen İlaç ve Sağlık', sector: 'İlaç ve Sağlık',  basePrice: 9.24, volatility: 0.033, drift: 0.0004, avgVolume: 96030000, logoDomain: 'genilac.com.tr' },
+        GESAN: { name: 'Girişim Elektrik Sanayi', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 80.30, volatility: 0.018, drift: 0.0003, avgVolume: 4956000, logoDomain: 'girisimelk.com.tr' },
+        GLYHO: { name: 'Global Yatırım Holding', sector: 'Holding ve Yatırım', basePrice: 18.73, volatility: 0.027, drift: 0.0006, avgVolume: 42615000, logoDomain: 'globalyatirim.com.tr' },
+        GSDHO: { name: 'GSD Holding', sector: 'Holding ve Yatırım', basePrice: 6.04, volatility: 0.033, drift: 0.0004, avgVolume: 117270000, logoDomain: 'gsdholding.com.tr' },
+        GUBRF: { name: 'Gübre Fabrikaları', sector: 'Kimya, Petrokimya',  basePrice: 413.00, volatility: 0.015, drift: 0.0005, avgVolume: 1296000, logoDomain: 'gubretas.com.tr' },
+        GWIND: { name: 'Galata Wind Enerji', sector: 'Enerji (Üretim/Dağıtım)', basePrice: 26.1, volatility: 0.027, drift: 0.0008, avgVolume: 29115000, logoDomain: 'galatawindenerji.com' },
+        HALKB: { name: 'Halk Bankası', sector: 'Bankacılık',  basePrice: 38.22, volatility: 0.024, drift: 0.0003, avgVolume: 20772000, logoDomain: 'halkbank.com.tr' },
+        HEKTS: { name: 'Hektaş', sector: 'Kimya, Petrokimya',  basePrice: 3.03, volatility: 0.031, drift: 0.0008, avgVolume: 112770000, logoDomain: 'hektas.com.tr' },
+        IPEKE: { name: 'İpek Doğal Enerji', sector: 'Madencilik', basePrice: 91.9, volatility: 0.016, drift: 0.0003, avgVolume: 4896000, logoDomain: 'ipekenerji.com.tr' },
+        ISCTR: { name: 'İş Bankası (C)', sector: 'Bankacılık',  basePrice: 13.68, volatility: 0.029, drift: 0.0008, avgVolume: 61155000, logoDomain: 'isbank.com.tr' },
+        ISDMR: { name: 'İskenderun Demir Çelik', sector: 'Metal Ana Sanayii', basePrice: 56.7, volatility: 0.023, drift: 0.0008, avgVolume: 23454000, logoDomain: 'isdemir.com.tr' },
+        ISGYO: { name: 'İş GYO', sector: 'Gayrimenkul Yatırım Ortaklığı', basePrice: 20.26, volatility: 0.025, drift: 0.0008, avgVolume: 60975000, logoDomain: 'isgyo.com.tr' },
+        ISMEN: { name: 'İş Yatırım Menkul Değerler', sector: 'Finansal Hizmetler',  basePrice: 36.60, volatility: 0.02, drift: 0.0005, avgVolume: 16199999, logoDomain: 'isyatirim.com.tr' },
+        IZMDC: { name: 'İzmir Demir Çelik', sector: 'Metal Ana Sanayii', basePrice: 11.13, volatility: 0.025, drift: 0.0006, avgVolume: 62775000, logoDomain: 'izdemir.com.tr' },
+        KARDMD: { name: 'Kardemir (D)', sector: 'Metal Ana Sanayii', basePrice: 40.86, volatility: 0.025, drift: 0.0006, avgVolume: 15390000, logoDomain: 'kardemir.com' },
+        KCAER: { name: 'Kocaer Çelik', sector: 'Metal Ana Sanayii',  basePrice: 13.60, volatility: 0.028, drift: 0.0007, avgVolume: 61110000, logoDomain: 'kocaersteel.com' },
+        KCHOL: { name: 'Koç Holding', sector: 'Holding ve Yatırım',  basePrice: 197.00, volatility: 0.021, drift: 0.0006, avgVolume: 7134000, logoDomain: 'koc.com.tr' },
+        KMPUR: { name: 'Kimteks Poliüretan', sector: 'Kimya, Petrokimya', basePrice: 21.2, volatility: 0.029, drift: 0.0006, avgVolume: 62055000, logoDomain: 'kimteks.com.tr' },
+        KONTR: { name: 'Kontrolmatik Teknoloji', sector: 'Teknoloji',  basePrice: 5.31, volatility: 0.034, drift: 0.0005, avgVolume: 54720000, logoDomain: 'kontrolmatik.com' },
+        KONYA: { name: 'Konya Çimento', sector: 'Çimento',  basePrice: 3800.00, volatility: 0.015, drift: 0.0005, avgVolume: 186500, logoDomain: 'konyacimento.com.tr' },
+        KORDS: { name: 'Kordsa Teknik Tekstil', sector: 'Tekstil', basePrice: 79.9, volatility: 0.021, drift: 0.0006, avgVolume: 13626000, logoDomain: 'kordsa.com' },
+        KOZAA: { name: 'Koza Anadolu Metal', sector: 'Madencilik', basePrice: 119.7, volatility: 0.022, drift: 0.0005, avgVolume: 6803999, logoDomain: 'kozaanadolumetal.com.tr' },
+        KOZAL: { name: 'Koza Altın İşletmeleri', sector: 'Madencilik', basePrice: 50.25, volatility: 0.017, drift: 0.0004, avgVolume: 20610000, logoDomain: 'kozaaltin.com.tr' },
+        KRDMD: { name: 'Kardemir Karabük', sector: 'Metal Ana Sanayii',  basePrice: 42.76, volatility: 0.02, drift: 0.0007, avgVolume: 16920000, logoDomain: 'kardemir.com' },
+        MAVI: { name: 'Mavi Giyim', sector: 'Tekstil',  basePrice: 41.02, volatility: 0.021, drift: 0.0004, avgVolume: 23598000, logoDomain: 'mavi.com' },
+        MGROS: { name: 'Migros Ticaret', sector: 'Perakende Ticaret',  basePrice: 635.50, volatility: 0.015, drift: 0.0005, avgVolume: 253000, logoDomain: 'migroskurumsal.com' },
+        MIATK: { name: 'Mia Teknoloji', sector: 'Teknoloji',  basePrice: 33.18, volatility: 0.024, drift: 0.0005, avgVolume: 21672000, logoDomain: 'miateknoloji.com' },
+        ODAS: { name: 'Odaş Elektrik', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 8.47, volatility: 0.033, drift: 0.0004, avgVolume: 66150000, logoDomain: 'odas.com.tr' },
+        OTKAR: { name: 'Otokar Otomotiv', sector: 'Otomotiv',  basePrice: 328.25, volatility: 0.014, drift: 0.0004, avgVolume: 1462500, logoDomain: 'otokar.com.tr' },
+        OYAKC: { name: 'Oyak Çimento', sector: 'Çimento',  basePrice: 20.20, volatility: 0.025, drift: 0.0006, avgVolume: 27675000, logoDomain: 'oyakcimento.com' },
+        PENTA: { name: 'Penta Teknoloji', sector: 'Teknoloji', basePrice: 13.47, volatility: 0.026, drift: 0.0007, avgVolume: 48869999, logoDomain: 'penta.com.tr' },
+        PETKM: { name: 'Petkim Petrokimya', sector: 'Kimya, Petrokimya',  basePrice: 20.94, volatility: 0.025, drift: 0.0004, avgVolume: 44325000, logoDomain: 'petkim.com.tr' },
+        PGSUS: { name: 'Pegasus Hava Taşımacılığı', sector: 'Ulaştırma',  basePrice: 166.50, volatility: 0.018, drift: 0.0003, avgVolume: 4332000, logoDomain: 'flypgs.com' },
+        PSGYO: { name: 'Pasifik GYO', sector: 'Gayrimenkul Yatırım Ortaklığı',  basePrice: 3.29, volatility: 0.032, drift: 0.0003, avgVolume: 108180000, logoDomain: 'pasifikgyo.com.tr' },
+        QUAGR: { name: 'Qua Granite Hayal Yapı', sector: 'İnşaat',  basePrice: 3.41, volatility: 0.026, drift: 0.0003, avgVolume: 106560000, logoDomain: 'qua.com.tr' },
+        SAHOL: { name: 'Sabancı Holding', sector: 'Holding ve Yatırım',  basePrice: 88.40, volatility: 0.023, drift: 0.0006, avgVolume: 5850000, logoDomain: 'sabanci.com' },
+        SASA: { name: 'Sasa Polyester', sector: 'Kimya, Petrokimya',  basePrice: 2.43, volatility: 0.034, drift: 0.0005, avgVolume: 68040000, logoDomain: 'sasa.com.tr' },
+        SAYAS: { name: 'Say Yenilenebilir Enerji', sector: 'Enerji (Üretim/Dağıtım)', basePrice: 45.32, volatility: 0.025, drift: 0.0004, avgVolume: 15930000, logoDomain: 'sayas-re.com' },
+        SDTTR: { name: 'SDT Uzay ve Savunma', sector: 'Savunma Sanayii', basePrice: 264.5, volatility: 0.018, drift: 0.0008, avgVolume: 1861500, logoDomain: 'sdt.com.tr' },
+        SISE: { name: 'Şişecam', sector: 'Cam',  basePrice: 44.20, volatility: 0.028, drift: 0.0005, avgVolume: 22464000, logoDomain: 'sisecam.com' },
+        SKBNK: { name: 'Şekerbank', sector: 'Bankacılık',  basePrice: 19.63, volatility: 0.027, drift: 0.0008, avgVolume: 48915000, logoDomain: 'sekerbank.com.tr' },
+        SMRTG: { name: 'Smart Güneş Enerjisi', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 11.67, volatility: 0.027, drift: 0.0004, avgVolume: 46214999, logoDomain: 'smartsolar.com.tr' },
+        SOKM: { name: 'Şok Marketler', sector: 'Perakende Ticaret',  basePrice: 51.60, volatility: 0.024, drift: 0.0005, avgVolume: 21132000, logoDomain: 'sokmarket.com.tr' },
+        TABGD: { name: 'Tab Gıda Sanayi', sector: 'Gıda, İçecek',  basePrice: 231.30, volatility: 0.013, drift: 0.0003, avgVolume: 1311000, logoDomain: 'tabgida.com.tr' },
+        TAVHL: { name: 'TAV Havalimanları', sector: 'Ulaştırma',  basePrice: 265.50, volatility: 0.018, drift: 0.0008, avgVolume: 1399500, logoDomain: 'tav.aero' },
+        TCELL: { name: 'Turkcell', sector: 'Telekomünikasyon',  basePrice: 108.50, volatility: 0.022, drift: 0.0003, avgVolume: 6611999, logoDomain: 'turkcell.com.tr' },
+        TEZOL: { name: 'Europap Tezol Kağıt', sector: 'Kağıt', basePrice: 15.85, volatility: 0.028, drift: 0.0005, avgVolume: 43110000, logoDomain: 'tezol.com.tr' },
+        THYAO: { name: 'Türk Hava Yolları', sector: 'Ulaştırma',  basePrice: 329.50, volatility: 0.018, drift: 0.0008, avgVolume: 1408500, logoDomain: 'turkishairlines.com' },
+        TKFEN: { name: 'Tekfen Holding', sector: 'Holding ve Yatırım',  basePrice: 145.00, volatility: 0.016, drift: 0.0007, avgVolume: 5856000, logoDomain: 'tekfen.com.tr' },
+        TOASO: { name: 'Tofaş Türk Otomobil Fabrikası', sector: 'Otomotiv',  basePrice: 307.75, volatility: 0.013, drift: 0.0003, avgVolume: 2055000, logoDomain: 'tofas.com.tr' },
+        TSKB: { name: 'TSKB', sector: 'Bankacılık',  basePrice: 11.88, volatility: 0.028, drift: 0.0005, avgVolume: 53910000, logoDomain: 'tskb.com.tr' },
+        TTKOM: { name: 'Türk Telekom', sector: 'Telekomünikasyon',  basePrice: 58.15, volatility: 0.017, drift: 0.0006, avgVolume: 10962000, logoDomain: 'turktelekom.com.tr' },
+        TTRAK: { name: 'Türk Traktör', sector: 'Otomotiv',  basePrice: 437.50, volatility: 0.013, drift: 0.0003, avgVolume: 1949999, logoDomain: 'turktraktor.com.tr' },
+        TUPRS: { name: 'Tüpraş', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 289.25, volatility: 0.013, drift: 0.0003, avgVolume: 1355999, logoDomain: 'tupras.com.tr' },
+        TURSG: { name: 'Türkiye Sigorta', sector: 'Sigorta',  basePrice: 6.56, volatility: 0.035, drift: 0.0006, avgVolume: 112050000, logoDomain: 'turkiyesigorta.com.tr' },
+        ULKER: { name: 'Ülker Bisküvi', sector: 'Gıda, İçecek',  basePrice: 97.95, volatility: 0.017, drift: 0.0006, avgVolume: 4181999, logoDomain: 'ulker.com.tr' },
+        VAKBN: { name: 'Vakıflar Bankası', sector: 'Bankacılık',  basePrice: 31.00, volatility: 0.02, drift: 0.0007, avgVolume: 21960000, logoDomain: 'vakifbank.com.tr' },
+        VESBE: { name: 'Vestel Beyaz Eşya', sector: 'Dayanıklı Tüketim', basePrice: 6.33, volatility: 0.033, drift: 0.0004, avgVolume: 77670000, logoDomain: 'vestel.com.tr' },
+        VESTL: { name: 'Vestel Elektronik', sector: 'Dayanıklı Tüketim',  basePrice: 24.80, volatility: 0.028, drift: 0.0005, avgVolume: 28260000, logoDomain: 'vestel.com.tr' },
+        YEOTK: { name: 'Yeo Teknoloji', sector: 'Teknoloji',  basePrice: 91.80, volatility: 0.018, drift: 0.0003, avgVolume: 5676000, logoDomain: 'yeo.com.tr' },
+        YKBNK: { name: 'Yapı ve Kredi Bankası', sector: 'Bankacılık',  basePrice: 33.22, volatility: 0.023, drift: 0.0008, avgVolume: 11034000, logoDomain: 'yapikredi.com.tr' },
+        YYLGD: { name: 'Yayla Agro Gıda', sector: 'Gıda, İçecek', basePrice: 11.4, volatility: 0.023, drift: 0.0006, avgVolume: 30284999, logoDomain: 'yaylaagro.com' },
+        ZOREN: { name: 'Zorlu Enerji', sector: 'Enerji (Üretim/Dağıtım)',  basePrice: 2.66, volatility: 0.028, drift: 0.0005, avgVolume: 71820000, logoDomain: 'zorluenerji.com.tr' }
+    };
+
+    /* ──────────────── BIST 100 Symbol Universe (shared watchlist / selector data) ──────────────── */
+    const BIST100 = [
+        {"symbol": "AEFES", "name": "Anadolu Efes"},
+        {"symbol": "AGESA", "name": "Agesa Hayat ve Emeklilik"},
+        {"symbol": "AKBNK", "name": "Akbank"},
+        {"symbol": "AKCNS", "name": "Akçansa Çimento"},
+        {"symbol": "AKFGY", "name": "Akfen GYO"},
+        {"symbol": "AKSEN", "name": "Aksa Enerji"},
+        {"symbol": "ALARK", "name": "Alarko Holding"},
+        {"symbol": "ALBRK", "name": "Albaraka Türk"},
+        {"symbol": "ALFAS", "name": "Alfa Solar Enerji"},
+        {"symbol": "ARCLK", "name": "Arçelik"},
+        {"symbol": "ASELS", "name": "Aselsan"},
+        {"symbol": "ASTOR", "name": "Astor Enerji"},
+        {"symbol": "BERA", "name": "Bera Holding"},
+        {"symbol": "BIMAS", "name": "BİM Mağazalar"},
+        {"symbol": "BRSAN", "name": "Borusan Mannesmann"},
+        {"symbol": "BRYAT", "name": "Borusan Yatırım Pazarlama"},
+        {"symbol": "BUCIM", "name": "Bursa Çimento"},
+        {"symbol": "CANTE", "name": "Çan2 Termik"},
+        {"symbol": "CCOLA", "name": "Coca-Cola İçecek"},
+        {"symbol": "CEMTS", "name": "Çemtaş Çelik Makina"},
+        {"symbol": "CIMSA", "name": "Çimsa Çimento"},
+        {"symbol": "CWENE", "name": "Cw Enerji Mühendislik"},
+        {"symbol": "DOAS", "name": "Doğuş Otomotiv Servis"},
+        {"symbol": "DOHOL", "name": "Doğan Şirketler Grubu"},
+        {"symbol": "ECILC", "name": "Eczacıbaşı İlaç"},
+        {"symbol": "ECZYT", "name": "Eczacıbaşı Yatırım"},
+        {"symbol": "EGEEN", "name": "Ege Endüstri"},
+        {"symbol": "EKGYO", "name": "Emlak Konut GYO"},
+        {"symbol": "ENJSA", "name": "Enerjisa Enerji"},
+        {"symbol": "ENKAI", "name": "Enka İnşaat"},
+        {"symbol": "EREGL", "name": "Ereğli Demir Çelik"},
+        {"symbol": "EUPWR", "name": "Europower Enerji"},
+        {"symbol": "FROTO", "name": "Ford Otomotiv Sanayi"},
+        {"symbol": "GARAN", "name": "Garanti Bankası"},
+        {"symbol": "GENIL", "name": "Gen İlaç ve Sağlık"},
+        {"symbol": "GESAN", "name": "Girişim Elektrik Sanayi"},
+        {"symbol": "GLYHO", "name": "Global Yatırım Holding"},
+        {"symbol": "GSDHO", "name": "GSD Holding"},
+        {"symbol": "GUBRF", "name": "Gübre Fabrikaları"},
+        {"symbol": "GWIND", "name": "Galata Wind Enerji"},
+        {"symbol": "HALKB", "name": "Halk Bankası"},
+        {"symbol": "HEKTS", "name": "Hektaş"},
+        {"symbol": "IPEKE", "name": "İpek Doğal Enerji"},
+        {"symbol": "ISCTR", "name": "İş Bankası (C)"},
+        {"symbol": "ISDMR", "name": "İskenderun Demir Çelik"},
+        {"symbol": "ISGYO", "name": "İş GYO"},
+        {"symbol": "ISMEN", "name": "İş Yatırım Menkul Değerler"},
+        {"symbol": "IZMDC", "name": "İzmir Demir Çelik"},
+        {"symbol": "KARDMD", "name": "Kardemir (D)"},
+        {"symbol": "KCAER", "name": "Kocaer Çelik"},
+        {"symbol": "KCHOL", "name": "Koç Holding"},
+        {"symbol": "KMPUR", "name": "Kimteks Poliüretan"},
+        {"symbol": "KONTR", "name": "Kontrolmatik Teknoloji"},
+        {"symbol": "KONYA", "name": "Konya Çimento"},
+        {"symbol": "KORDS", "name": "Kordsa Teknik Tekstil"},
+        {"symbol": "KOZAA", "name": "Koza Anadolu Metal"},
+        {"symbol": "KOZAL", "name": "Koza Altın İşletmeleri"},
+        {"symbol": "KRDMD", "name": "Kardemir Karabük"},
+        {"symbol": "MAVI", "name": "Mavi Giyim"},
+        {"symbol": "MGROS", "name": "Migros Ticaret"},
+        {"symbol": "MIATK", "name": "Mia Teknoloji"},
+        {"symbol": "ODAS", "name": "Odaş Elektrik"},
+        {"symbol": "OTKAR", "name": "Otokar Otomotiv"},
+        {"symbol": "OYAKC", "name": "Oyak Çimento"},
+        {"symbol": "PENTA", "name": "Penta Teknoloji"},
+        {"symbol": "PETKM", "name": "Petkim Petrokimya"},
+        {"symbol": "PGSUS", "name": "Pegasus Hava Taşımacılığı"},
+        {"symbol": "PSGYO", "name": "Pasifik GYO"},
+        {"symbol": "QUAGR", "name": "Qua Granite Hayal Yapı"},
+        {"symbol": "SAHOL", "name": "Sabancı Holding"},
+        {"symbol": "SASA", "name": "Sasa Polyester"},
+        {"symbol": "SAYAS", "name": "Say Yenilenebilir Enerji"},
+        {"symbol": "SDTTR", "name": "SDT Uzay ve Savunma"},
+        {"symbol": "SISE", "name": "Şişecam"},
+        {"symbol": "SKBNK", "name": "Şekerbank"},
+        {"symbol": "SMRTG", "name": "Smart Güneş Enerjisi"},
+        {"symbol": "SOKM", "name": "Şok Marketler"},
+        {"symbol": "TABGD", "name": "Tab Gıda Sanayi"},
+        {"symbol": "TAVHL", "name": "TAV Havalimanları"},
+        {"symbol": "TCELL", "name": "Turkcell"},
+        {"symbol": "TEZOL", "name": "Europap Tezol Kağıt"},
+        {"symbol": "THYAO", "name": "Türk Hava Yolları"},
+        {"symbol": "TKFEN", "name": "Tekfen Holding"},
+        {"symbol": "TOASO", "name": "Tofaş Türk Otomobil Fabrikası"},
+        {"symbol": "TSKB", "name": "TSKB"},
+        {"symbol": "TTKOM", "name": "Türk Telekom"},
+        {"symbol": "TTRAK", "name": "Türk Traktör"},
+        {"symbol": "TUPRS", "name": "Tüpraş"},
+        {"symbol": "TURSG", "name": "Türkiye Sigorta"},
+        {"symbol": "ULKER", "name": "Ülker Bisküvi"},
+        {"symbol": "VAKBN", "name": "Vakıflar Bankası"},
+        {"symbol": "VESBE", "name": "Vestel Beyaz Eşya"},
+        {"symbol": "VESTL", "name": "Vestel Elektronik"},
+        {"symbol": "YEOTK", "name": "Yeo Teknoloji"},
+        {"symbol": "YKBNK", "name": "Yapı ve Kredi Bankası"},
+        {"symbol": "YYLGD", "name": "Yayla Agro Gıda"},
+        {"symbol": "ZOREN", "name": "Zorlu Enerji"}
+    ];
+
+    /* ──────────────── BIST Market Hours (shared single source of truth) ────────────────
+     * BIST equity session: Mon–Fri, 09:55–18:00 TRT (Europe/Istanbul). Used both by the
+     * header MARKET status badge (app.js) and by the live price-tick engine
+     * (tradingEngine.js) so simulated prices never move while the market is closed. */
+    function isMarketOpenNow() {
+        const now = new Date();
+        const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Istanbul', weekday: 'short' });
+        const hourFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Istanbul', hour: 'numeric', hour12: false });
+        const minFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Istanbul', minute: 'numeric' });
+
+        const weekday = dayFormatter.format(now);
+        const hour = parseInt(hourFormatter.format(now), 10);
+        const minute = parseInt(minFormatter.format(now), 10);
+
+        const timeInMinutes = hour * 60 + minute;
+        const openTime = 9 * 60 + 55;  // 09:55 TRT
+        const closeTime = 18 * 60;     // 18:00 TRT
+
+        const isWeekend = weekday === 'Sat' || weekday === 'Sun';
+        const isTradingHours = timeInMinutes >= openTime && timeInMinutes < closeTime;
+
+        return !isWeekend && isTradingHours;
+    }
+
+    /* ──────────────── Seeded PRNG (Mulberry32) ──────────────── */
+    function mulberry32(seed) {
+        return () => {
+            seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+            let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+            t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        };
+    }
+
+    /** Box-Muller transform: 2 uniform → 1 normal */
+    function normalRandom(rng) {
+        let u1, u2;
+        do { u1 = rng(); } while (u1 === 0);
+        u2 = rng();
+        return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    }
+
+    /* ──────────────── 1. OHLCV Generator ──────────────── */
+
+    /**
+     * Generate deterministic 30-day OHLCV candles for a given ticker.
+     * @param {string} ticker  — one of the STOCK_PROFILES keys
+     * @param {number} [days]  — number of trading days (default 30)
+     * @returns {Array<{date:string, open:number, high:number, low:number, close:number, volume:number}>}
+     */
+    function normalizeTicker(ticker) {
+        if (!ticker) return '';
+        ticker = ticker.toUpperCase().trim();
+        if (!ticker.endsWith('.IS') && ticker !== 'XU100' && ticker !== 'XU100.IS') {
+            return ticker + '.IS';
+        }
+        return ticker;
+    }
+
+    // (22 Temmuz 2026, on ikinci oturum, altıncı tur — "hisse logoları"
+    // özelliği) Her STOCK_PROFILES girdisine bir `logoDomain` alanı eklendi
+    // (97 BIST100 şirketinin resmi kurumsal web sitesi kök alan adı — web
+    // araştırmasıyla tek tek doğrulanıp toplandı). Bu fonksiyon, o alan
+    // adını gerçek şirket logosu görselinin URL'sine çeviriyor. yfinance
+    // BIST hisseleri için doğrudan bir logo alanı sağlamadığından bu,
+    // projenin "gerçek veri" ilkesine en yakın, pratik yol.
+    //
+    // (22 Temmuz 2026, on ikinci oturum, yedinci tur — düzeltme) İlk
+    // denemede Clearbit'in ücretsiz/anahtarsız logo servisi (logo.clearbit.com)
+    // kullanılmıştı, ama Clearbit bu servisi 8 Aralık 2025'te TAMAMEN
+    // kapattı (bkz. HubSpot'un duyurusu) — canlı sitede TÜM logoların renkli
+    // rozete düşmesinin nedeni buydu, kodda bir hata değildi. Yerine
+    // Clearbit'in resmi önerdiği Logo.dev'e geçildi — kullanıcının kendi
+    // (kalıcı olarak ücretsiz, ayda 500.000 istek limitli) Logo.dev
+    // hesabından aldığı bir "Publishable key" (config.js'teki
+    // LOGO_DEV_TOKEN — bilerek herkese açık/frontend'de kullanılmaya uygun
+    // bir anahtar türü, gizli değil) gerekiyor.
+    //
+    // Alan adı bilinmiyorsa, token tanımlı değilse veya Logo.dev o alan adı
+    // için bir logo bulamazsa null döner — çağıran taraf (bkz.
+    // tradingEngine.js renderWatchlistRows / tradingChart.js
+    // setSymbolHeader) bunu renkli baş harf rozetine (fallback) düşürüyor,
+    // kırık bir görsel ikonu asla görünmüyor.
+    function getLogoUrl(ticker, size = 64) {
+        const cleanTicker = (ticker || '').replace('.IS', '').toUpperCase();
+        const profile = STOCK_PROFILES[cleanTicker];
+        if (!profile || !profile.logoDomain) return null;
+        const token = window.OPTIPULSE_CONFIG && window.OPTIPULSE_CONFIG.LOGO_DEV_TOKEN;
+        if (!token) return null;
+        return `https://img.logo.dev/${profile.logoDomain}?token=${token}&size=${size}&format=png`;
+    }
+
+    // Bir sembol için, üçüncü taraf logo servisi hiç yoksa ya da o servis
+    // bu alan adı için bir görsel döndürmezse (ör. yeni/az bilinen bir
+    // şirket, Logo.dev'in kendi veritabanında olmayabilir) kullanılacak
+    // basit, deterministik renkli baş harf rozeti — aynı sembol her zaman
+    // aynı rengi/harfleri üretir, kırık bir görsel ikonu asla görünmez.
+    function getLogoFallback(ticker) {
+        const t = (ticker || '').replace('.IS', '').toUpperCase();
+        const initials = t.slice(0, 2) || '--';
+        let hash = 0;
+        for (let i = 0; i < t.length; i++) hash = (hash * 31 + t.charCodeAt(i)) >>> 0;
+        const hue = hash % 360;
+        return { initials, color: `hsl(${hue}, 48%, 36%)` };
+    }
+
+    // Watchlist satırı, grafik sembol başlığı ve ısı haritası gibi birden
+    // fazla yerde AYNI logo+rozet markup'ını tekrar tekrar elle yazmamak
+    // için tek bir HTML üretici — img yüklenemezse (onerror) otomatik olarak
+    // yanındaki gizli rozet span'ını gösterip kendini gizliyor, hiçbir ek JS
+    // olay dinleyicisi kaydına gerek yok (innerHTML ile toplu enjekte edilen
+    // watchlist satırlarında bu önemli — her satıra ayrı ayrı dinleyici
+    // bağlamak yerine, tek satırlık inline `onerror` yeterli).
+    function buildLogoHtml(ticker, sizePx = 20) {
+        const url = getLogoUrl(ticker, Math.max(32, sizePx * 2));
+        const { initials, color } = getLogoFallback(ticker);
+        let inner;
+        if (url) {
+            inner = `<img class="stock-logo-img" src="${url}" alt="" loading="lazy" ` +
+                `onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` +
+                `<span class="stock-logo-fallback" style="display:none;background:${color};">${initials}</span>`;
+        } else {
+            inner = `<span class="stock-logo-fallback" style="display:flex;background:${color};">${initials}</span>`;
+        }
+        return `<span class="stock-logo-wrap" style="width:${sizePx}px;height:${sizePx}px;">${inner}</span>`;
+    }
+
+    function generateOHLCV(ticker, days = TRADING_DAYS) {
+        const cleanTicker = ticker.replace('.IS', '');
+        let profile = STOCK_PROFILES[cleanTicker];
+        if (!profile) {
+            profile = {
+                name: cleanTicker,
+                sector: 'BIST Stock',
+                basePrice: 100.0,
+                volatility: 0.02,
+                drift: 0.0005,
+                avgVolume: 10_000_000
+            };
+        }
+
+        // Seed by ticker hash so each stock is reproducible but distinct
+        const seed = Array.from(cleanTicker).reduce((s, c) => s * 31 + c.charCodeAt(0), 0);
+        const rng = mulberry32(seed);
+
+        const candles = [];
+        let prevClose = profile.basePrice;
+        // (19 Temmuz 2026, on ikinci oturum) Önceden burada sabit bir tarih
+        // ("2026-06-01") yazılıydı — bu, yazıldığı günün "bugün"üne göre
+        // `days`=30 ile kabaca hizalanacak şekilde elle seçilmişti, ama
+        // gerçek zaman ilerledikçe (ve şimdi `days` 750'ye çıkınca) bu sabit
+        // değer gitgide bugünden uzaklaşıp anlamsızlaşırdı. Artık başlangıç,
+        // "bugün"den (UTC gece yarısı) geriye `days` işlem günü kadar
+        // hesaplanıyor — döngünün geri kalanı (hafta sonu atlama dahil)
+        // DEĞİŞMEDİ, sadece başlangıç noktası artık dinamik. Yine de UTC
+        // alan matematiği (Date.UTC) kullanılıyor, yerel saat dilimine
+        // bağımlı değil (bkz. synthesizeIntradayCandles()'daki "UTC alanları
+        // TRT duvar saati gibi okunuyor" kuralı).
+        const now = new Date();
+        const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+        const calendarDaysBack = Math.ceil(days * 7 / 5) + 10; // hafta sonları + güvenlik payı
+        const startMs = todayMs - calendarDaysBack * 86400000;
+
+        for (let i = 0; i < days; i++) {
+            const dayMs = startMs + i * 86400000;
+            const dow = new Date(dayMs).getUTCDay();
+            // Skip weekends
+            if (dow === 0 || dow === 6) {
+                days++;        // extend iteration so we get 30 *trading* days
+                continue;
+            }
+
+            const dailyReturn = profile.drift + profile.volatility * normalRandom(rng);
+            const open  = +(prevClose * (1 + (rng() - 0.5) * 0.003)).toFixed(2);
+            const close = +(open * (1 + dailyReturn)).toFixed(2);
+
+            const intraRange = Math.abs(close - open) + profile.volatility * prevClose * rng();
+            const high = +(Math.max(open, close) + intraRange * 0.5 * rng()).toFixed(2);
+            const low  = +(Math.min(open, close) - intraRange * 0.5 * rng()).toFixed(2);
+
+            const volumeNoise = 0.7 + rng() * 0.6;   // ±30 %
+            const volume = Math.round(profile.avgVolume * volumeNoise);
+
+            candles.push({
+                date: Math.floor(dayMs / 1000), // unix seconds (UTC midnight of this trading day)
+                open, high, low, close, volume
+            });
+
+            prevClose = close;
+        }
+
+        // (22 Temmuz 2026, on ikinci oturum, dördüncü tur) "Fiyat tutarsızlığı"
+        // düzeltmesi — kullanıcının hocası gerçek ALBRK fiyatının (~₺8.30)
+        // sitedeki simüle "bugün" fiyatından (₺18.71) çok saptığını fark etti.
+        // Kök neden: TRADING_DAYS onuncu/on ikinci oturumda 30'dan 750'ye
+        // (~3 yıl) çıkarıldığında, STOCK_PROFILES.basePrice'ın rolü sessizce
+        // değişti. basePrice her zaman "ARAŞTIRILMIŞ, GERÇEK, BUGÜNKÜ fiyat"
+        // olarak yazılıyor (bkz. claude/bist100-price-anchors-*.md) — ama
+        // yukarıdaki döngü onu "geçmişin BAŞLANGIÇ fiyatı" olarak kullanıp
+        // oradan bugüne doğru drift+volatiliteyle birikimli olarak büyütüyor/
+        // küçültüyordu. 30 günlük eski pencerede bu sapma gözden kaçacak
+        // kadar küçüktü; 750 günlük pencerede (özellikle drift>0 olan
+        // hisselerde) birikimli büyüme gerçek fiyatın 2-3 katına kadar
+        // çıkabiliyor. Düzeltme: rastgele yürüyüşün ŞEKLİ (günlük getiriler,
+        // volatilite deseni, iniş-çıkışlar) AYNI kalıyor, ama tüm seri tek
+        // bir ölçek katsayısıyla yeniden ölçekleniyor ki SON (yani "bugünkü")
+        // kapanış tam olarak basePrice'a eşit olsun — "bugün" artık HER ZAMAN
+        // araştırılan gerçek fiyatı gösteriyor, geçmiş sadece o noktaya varan
+        // gerçekçi/rastgele bir yol oluyor (gerçek 3 yıl öncesini temsil ettiği
+        // iddiası zaten yoktu — bu tamamen sentetik bir yedek veri).
+        if (candles.length > 0 && profile.basePrice > 0) {
+            const lastClose = candles[candles.length - 1].close;
+            if (lastClose > 0) {
+                const scale = profile.basePrice / lastClose;
+                candles.forEach(c => {
+                    c.open = +(c.open * scale).toFixed(2);
+                    c.high = +(c.high * scale).toFixed(2);
+                    c.low = +(c.low * scale).toFixed(2);
+                    c.close = +(c.close * scale).toFixed(2);
+                });
+            }
+        }
+
+        return candles;
+    }
+
+    /**
+     * Generate OHLCV data for ALL tickers in the stock universe.
+     * @returns {Object<string, Array>}
+     */
+    function generateAllOHLCV() {
+        const result = {};
+        for (const ticker of Object.keys(STOCK_PROFILES)) {
+            result[ticker] = generateOHLCV(ticker);
+        }
+        return result;
+    }
+
+    /* ──────────────── 1b. Timeframe Resolution Engine ────────────────
+     * Everything in this app is DAILY-bar data (real fetched OHLCV or the
+     * synthetic generator above) — there is no real intraday feed. To make
+     * the TradingView-style "15m / 1H / 4H / 1D / 1W" resolution selector on
+     * the chart genuinely functional rather than a decorative dead button,
+     * each daily bar is deterministically exploded into sub-bars (intraday)
+     * or grouped with its trading-week neighbors (weekly). Deterministic =
+     * seeded per-bar, so switching resolutions back and forth always
+     * reproduces the same synthetic shape instead of jittering randomly.
+     *
+     * Convention: every candle's `date` field across this whole app is a
+     * unix-second timestamp whose UTC calendar/clock fields are meant to be
+     * read AS IF they were TRT (Europe/Istanbul, UTC+3) wall-clock fields —
+     * e.g. a bar tagged 07:00 UTC represents "10:00 TRT", the BIST session
+     * open. This is a deliberate simplification (real UTC offset is never
+     * applied) so Lightweight Charts' UTC-based axis formatting and this
+     * module's own display formatting always agree without needing timezone
+     * conversion anywhere. */
+
+    const BIST_SESSION_START_UTC_SECONDS = 7 * 3600;  // "10:00 TRT" -> 07:00 on the UTC-labeled clock
+    const BIST_SESSION_MINUTES = 480;                  // "10:00-18:00 TRT" 8-hour session
+
+    /**
+     * Explode each daily candle into N deterministic intraday sub-bars that
+     * respect the parent bar's open/high/low/close exactly (first sub-bar's
+     * open == daily open, last sub-bar's close == daily close, and the
+     * min/max across all sub-bars reproduces the daily low/high).
+     * @param {Array} dailyCandles — daily candles as produced by generateOHLCV
+     *   or the /api/v1/ohlcv backend parser (each needs date/open/high/low/close/volume)
+     * @param {number} resolutionMinutes — e.g. 15, 60, 240
+     * @returns {Array} intraday candles, same shape, many more of them
+     */
+    function synthesizeIntradayCandles(dailyCandles, resolutionMinutes) {
+        if (!Array.isArray(dailyCandles) || !dailyCandles.length) return [];
+        const barsPerDay = Math.max(1, Math.round(BIST_SESSION_MINUTES / resolutionMinutes));
+        const secondsPerBar = (BIST_SESSION_MINUTES * 60) / barsPerDay;
+        const out = [];
+
+        dailyCandles.forEach(day => {
+            const { date, open, high, low, close } = day;
+            const volume = day.volume || 0;
+            const dayStart = date + BIST_SESSION_START_UTC_SECONDS;
+            const range = Math.max(high - low, 0.01);
+
+            // Deterministic per-day seed (no external ticker param needed —
+            // the bar's own values already make it unique).
+            const seed = Math.abs(Math.round(date * 2654435761 + open * 977 + close * 613)) % 2147483647;
+            const rng = mulberry32(seed || 1);
+
+            // Brownian-bridge control points: points[0]=open ... points[n]=close,
+            // with noise tapering to 0 at both ends so the bridge lands exactly
+            // on the daily open/close.
+            const points = [open];
+            for (let i = 1; i < barsPerDay; i++) {
+                const t = i / barsPerDay;
+                const drift = open + (close - open) * t;
+                const noise = (rng() - 0.5) * range * 0.7 * Math.sin(Math.PI * t);
+                points.push(drift + noise);
+            }
+            points.push(close);
+            for (let i = 0; i <= barsPerDay; i++) {
+                points[i] = Math.min(high, Math.max(low, points[i]));
+            }
+            points[0] = open;
+            points[barsPerDay] = close;
+
+            // Force the daily low/high to actually appear somewhere in the
+            // interior of the path, so the sub-bars reconstruct the exact
+            // daily range instead of just approximating it.
+            if (barsPerDay >= 3) {
+                const lowIdx = 1 + Math.floor(rng() * (barsPerDay - 1));
+                let highIdx = 1 + Math.floor(rng() * (barsPerDay - 1));
+                if (highIdx === lowIdx) highIdx = (lowIdx % (barsPerDay - 1)) + 1;
+                points[lowIdx] = low;
+                points[highIdx] = high;
+            }
+
+            const volPerBar = volume / barsPerDay;
+            for (let i = 0; i < barsPerDay; i++) {
+                const o = points[i], c = points[i + 1];
+                const wick = range * 0.05 * rng();
+                const hi = Math.min(high, Math.max(o, c) + wick);
+                const lo = Math.max(low, Math.min(o, c) - wick);
+                out.push({
+                    date: Math.round(dayStart + i * secondsPerBar),
+                    open: +o.toFixed(2),
+                    high: +hi.toFixed(2),
+                    low: +lo.toFixed(2),
+                    close: +c.toFixed(2),
+                    volume: Math.round(volPerBar * (0.6 + rng() * 0.8))
+                });
+            }
+        });
+
+        return out;
+    }
+
+    /**
+     * Aggregate daily candles into one bar per trading week (Mon-anchored),
+     * OHLC-rolled up (open=first day's open, close=last day's close,
+     * high/low = week's extremes, volume = week's sum).
+     * @param {Array} dailyCandles
+     * @returns {Array} weekly candles, same shape as daily
+     */
+    function aggregateWeeklyCandles(dailyCandles) {
+        if (!Array.isArray(dailyCandles) || !dailyCandles.length) return [];
+        const weeks = new Map();
+
+        dailyCandles.forEach(c => {
+            const d = new Date(c.date * 1000);
+            const dow = d.getUTCDay(); // 0=Sun..6=Sat
+            const diffToMonday = dow === 0 ? -6 : 1 - dow;
+            const mondayMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diffToMonday);
+            const key = Math.floor(mondayMs / 1000);
+            if (!weeks.has(key)) weeks.set(key, []);
+            weeks.get(key).push(c);
+        });
+
+        return Array.from(weeks.keys()).sort((a, b) => a - b).map(key => {
+            const bucket = weeks.get(key);
+            return {
+                date: key,
+                open: bucket[0].open,
+                high: Math.max(...bucket.map(c => c.high)),
+                low: Math.min(...bucket.map(c => c.low)),
+                close: bucket[bucket.length - 1].close,
+                volume: bucket.reduce((s, c) => s + (c.volume || 0), 0)
+            };
+        });
+    }
+
+    /**
+     * (30 Ağustos 2026 — "TradingView tarzı zaman dilimi sistemi" madde 4)
+     * aggregateWeeklyCandles ile AYNI OHLC-rollup mantığı, sadece takvim
+     * AYI'na göre gruplanmış — 1 Aylık ("1mo") çözünürlük için. Ayrı bir
+     * backend isteği gerekmiyor: zaten çekilmiş olan günlük (2 yıllık,
+     * gerçek) barlar tek geçişte aylara toplanıyor, tıpkı haftalık gibi.
+     * @param {Array} dailyCandles
+     * @returns {Array} monthly candles, same shape as daily
+     */
+    function aggregateMonthlyCandles(dailyCandles) {
+        if (!Array.isArray(dailyCandles) || !dailyCandles.length) return [];
+        const months = new Map();
+
+        dailyCandles.forEach(c => {
+            const d = new Date(c.date * 1000);
+            const key = d.getUTCFullYear() * 100 + d.getUTCMonth(); // e.g. 202608
+            if (!months.has(key)) months.set(key, []);
+            months.get(key).push(c);
+        });
+
+        return Array.from(months.keys()).sort((a, b) => a - b).map(key => {
+            const bucket = months.get(key);
+            return {
+                date: bucket[0].date, // ayın ilk gerçek işlem günü — Lightweight Charts eksen için yeterli
+                open: bucket[0].open,
+                high: Math.max(...bucket.map(c => c.high)),
+                low: Math.min(...bucket.map(c => c.low)),
+                close: bucket[bucket.length - 1].close,
+                volume: bucket.reduce((s, c) => s + (c.volume || 0), 0)
+            };
+        });
+    }
+
+    /* ──────────────── 2. Strategy Engine (SMA Crossover) ──────────────── */
+
+    /**
+     * Compute Simple Moving Average of `close` prices.
+     * @param {number[]} closes
+     * @param {number}   period
+     * @returns {(number|null)[]}
+     */
+    function computeSMA(closes, period) {
+        const sma = [];
+        for (let i = 0; i < closes.length; i++) {
+            if (i < period - 1) { sma.push(null); continue; }
+            let sum = 0;
+            for (let j = i - period + 1; j <= i; j++) sum += closes[j];
+            sma.push(+(sum / period).toFixed(4));
+        }
+        return sma;
+    }
+
+    /**
+     * Compute Weighted Moving Average — like SMA but recent bars count more
+     * (weight i+1 for the i-th bar in the window, so the most recent bar in
+     * a period-N window has weight N). Added onuncu oturum (18 Temmuz 2026)
+     * to diversify the overlay indicator list alongside SMA/EMA.
+     * @param {number[]} closes
+     * @param {number}   period
+     * @returns {(number|null)[]}
+     */
+    function computeWMA(closes, period) {
+        const wma = [];
+        const denom = (period * (period + 1)) / 2;
+        for (let i = 0; i < closes.length; i++) {
+            if (i < period - 1) { wma.push(null); continue; }
+            let sum = 0;
+            for (let j = 0; j < period; j++) {
+                sum += closes[i - period + 1 + j] * (j + 1);
+            }
+            wma.push(+(sum / denom).toFixed(4));
+        }
+        return wma;
+    }
+
+    /**
+     * Compute Exponential Moving Average.
+     */
+    function computeEMA(values, period) {
+        const ema = [];
+        const k = 2 / (period + 1);
+        let prevEma = null;
+        for (let i = 0; i < values.length; i++) {
+            if (i < period - 1) {
+                ema.push(null);
+            } else if (i === period - 1) {
+                let sum = 0;
+                for (let j = 0; j < period; j++) {
+                    sum += values[j];
+                }
+                prevEma = sum / period;
+                ema.push(+prevEma.toFixed(4));
+            } else {
+                prevEma = values[i] * k + prevEma * (1 - k);
+                ema.push(+prevEma.toFixed(4));
+            }
+        }
+        return ema;
+    }
+
+    /**
+     * Compute Relative Strength Index using Wilder's smoothing technique.
+     */
+    function computeRSI(closes, period = 14) {
+        const rsi = [];
+        if (closes.length <= period) {
+            return Array(closes.length).fill(null);
+        }
+        for (let i = 0; i < period; i++) {
+            rsi.push(null);
+        }
+        let avgGain = 0;
+        let avgLoss = 0;
+        for (let i = 1; i <= period; i++) {
+            const change = closes[i] - closes[i - 1];
+            if (change > 0) {
+                avgGain += change;
+            } else {
+                avgLoss -= change;
+            }
+        }
+        avgGain /= period;
+        avgLoss /= period;
+        
+        let rs = avgLoss === 0 ? Infinity : avgGain / avgLoss;
+        let firstRsi = avgLoss === 0 ? 100 : 100 - (100 / (1 + rs));
+        rsi.push(+firstRsi.toFixed(4));
+
+        for (let i = period + 1; i < closes.length; i++) {
+            const change = closes[i] - closes[i - 1];
+            const gain = change > 0 ? change : 0;
+            const loss = change < 0 ? -change : 0;
+
+            avgGain = (avgGain * (period - 1) + gain) / period;
+            avgLoss = (avgLoss * (period - 1) + loss) / period;
+
+            rs = avgLoss === 0 ? Infinity : avgGain / avgLoss;
+            const val = avgLoss === 0 ? 100 : 100 - (100 / (1 + rs));
+            rsi.push(+val.toFixed(4));
+        }
+        return rsi;
+    }
+
+    /**
+     * Compute MACD (Moving Average Convergence Divergence).
+     * @returns {{macdLine:(number|null)[], signalLine:(number|null)[], histogram:(number|null)[]}}
+     */
+    function computeMACD(closes, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
+        const emaFast = computeEMA(closes, fastPeriod);
+        const emaSlow = computeEMA(closes, slowPeriod);
+        const macdLine = closes.map((_, i) => {
+            if (emaFast[i] === null || emaSlow[i] === null) return null;
+            return +(emaFast[i] - emaSlow[i]).toFixed(4);
+        });
+
+        const firstValidIdx = macdLine.findIndex(v => v !== null);
+        const signalLine = new Array(macdLine.length).fill(null);
+        const histogram = new Array(macdLine.length).fill(null);
+
+        if (firstValidIdx !== -1) {
+            const validMacd = macdLine.slice(firstValidIdx);
+            const emaOfMacd = computeEMA(validMacd, signalPeriod);
+            for (let i = 0; i < emaOfMacd.length; i++) {
+                if (emaOfMacd[i] !== null) {
+                    signalLine[firstValidIdx + i] = emaOfMacd[i];
+                    histogram[firstValidIdx + i] = +(validMacd[i] - emaOfMacd[i]).toFixed(4);
+                }
+            }
+        }
+        return { macdLine, signalLine, histogram };
+    }
+
+    /**
+     * (23 Temmuz 2026, on üçüncü oturum — "motoru güçlendirme": 3. gerçek
+     * strateji) Bollinger Bantları (SMA + N standart sapma) — Sinyal
+     * Anlatıcısı / Strateji Tekrarı'nda kullanılan üçüncü, bağımsız bir
+     * ortalamaya-dönüş (mean-reversion) sinyal kaynağı. calculateIndicators()
+     * içindeki Bollinger hesaplamasıyla aynı matematiği kullanır (SMA(period)
+     * ± mult × std-dev), ama computeSignalMarkers gibi ham kapanış
+     * fiyatlarıyla doğrudan çalışan yerlerde bağımsızca çağrılabilsin diye
+     * ayrı, küçük bir fonksiyon olarak tutulur.
+     *
+     * @param {number[]} closes
+     * @param {number} period
+     * @param {number} mult
+     * @returns {{upper:(number|null)[], middle:(number|null)[], lower:(number|null)[]}}
+     */
+    function computeBollingerBands(closes, period = 20, mult = 2) {
+        const middle = computeSMA(closes, period);
+        const upper = new Array(closes.length).fill(null);
+        const lower = new Array(closes.length).fill(null);
+        for (let i = 0; i < closes.length; i++) {
+            if (i < period - 1 || middle[i] === null) continue;
+            let sumSq = 0;
+            for (let j = i - period + 1; j <= i; j++) {
+                const diff = closes[j] - middle[i];
+                sumSq += diff * diff;
+            }
+            const stddev = Math.sqrt(sumSq / period);
+            upper[i] = +(middle[i] + mult * stddev).toFixed(4);
+            lower[i] = +(middle[i] - mult * stddev).toFixed(4);
+        }
+        return { upper, middle, lower };
+    }
+
+    /**
+     * Compute Stochastic Oscillator (%K, %D).
+     * @returns {{k:(number|null)[], d:(number|null)[]}}
+     */
+    function computeStochastic(candles, kPeriod = 14, dPeriod = 3) {
+        const kValues = [];
+        for (let i = 0; i < candles.length; i++) {
+            if (i < kPeriod - 1) { kValues.push(null); continue; }
+            let lowestLow = Infinity, highestHigh = -Infinity;
+            for (let j = i - kPeriod + 1; j <= i; j++) {
+                if (candles[j].low < lowestLow) lowestLow = candles[j].low;
+                if (candles[j].high > highestHigh) highestHigh = candles[j].high;
+            }
+            const range = (highestHigh - lowestLow) || 1;
+            kValues.push(+(((candles[i].close - lowestLow) / range) * 100).toFixed(2));
+        }
+        const dValues = [];
+        for (let i = 0; i < kValues.length; i++) {
+            if (kValues[i] === null) { dValues.push(null); continue; }
+            let sum = 0, cnt = 0;
+            for (let j = Math.max(0, i - dPeriod + 1); j <= i; j++) {
+                if (kValues[j] !== null) { sum += kValues[j]; cnt++; }
+            }
+            dValues.push(cnt > 0 ? +(sum / cnt).toFixed(2) : null);
+        }
+        return { k: kValues, d: dValues };
+    }
+
+    /**
+     * Compute Williams %R — momentum oscillator ranging -100..0, conceptually
+     * a mirrored/rescaled Stochastic %K (%R = -100 * (highestHigh - close) /
+     * (highestHigh - lowestLow) over the window). Added onuncu oturum (18
+     * Temmuz 2026) to diversify the oscillator panel list alongside RSI/
+     * MACD/Stochastic. -80 and below is conventionally "oversold", -20 and
+     * above "overbought" (mirrors RSI's 30/70 but on Williams %R's own scale).
+     * @param {Array} candles
+     * @param {number} period
+     * @returns {(number|null)[]}
+     */
+    function computeWilliamsR(candles, period = 14) {
+        const willr = [];
+        for (let i = 0; i < candles.length; i++) {
+            if (i < period - 1) { willr.push(null); continue; }
+            let highestHigh = -Infinity, lowestLow = Infinity;
+            for (let j = i - period + 1; j <= i; j++) {
+                if (candles[j].high > highestHigh) highestHigh = candles[j].high;
+                if (candles[j].low < lowestLow) lowestLow = candles[j].low;
+            }
+            const range = highestHigh - lowestLow;
+            const value = range === 0 ? 0 : ((highestHigh - candles[i].close) / range) * -100;
+            willr.push(+value.toFixed(2));
+        }
+        return willr;
+    }
+
+    /**
+     * Compute Ichimoku Kinko Hyo (Ichimoku Cloud).
+     *
+     * Tenkan-sen ve Kijun-sen mevcut barlarda hesaplanır. Senkou Span A/B ve
+     * Chikou Span, standart formüle göre gerçek verilerden hesaplanır ve
+     * `displacement` kadar kaydırılır — ancak son gerçek mum çubuğunun
+     * ötesine sahte/gelecek zaman damgalı barlar EKLENMEZ (bu projede veri
+     * uydurmama ilkesi gereği). Bu yüzden bulut, en güncel `displacement`
+     * bar için henüz "ileri" çizilmez; Chikou de son `displacement` barda
+     * boş kalır. Bu dürüst bir basitleştirmedir, hata değildir.
+     */
+    function computeIchimoku(candles, tenkanPeriod = 9, kijunPeriod = 26, senkouBPeriod = 52, displacement = 26) {
+        const len = candles.length;
+        const highs = candles.map(c => c.high);
+        const lows = candles.map(c => c.low);
+        const closes = candles.map(c => c.close);
+
+        function midpoint(period, i) {
+            if (i < period - 1) return null;
+            let hh = -Infinity, ll = Infinity;
+            for (let j = i - period + 1; j <= i; j++) {
+                if (highs[j] > hh) hh = highs[j];
+                if (lows[j] < ll) ll = lows[j];
+            }
+            return (hh + ll) / 2;
+        }
+
+        const tenkan = new Array(len).fill(null);
+        const kijun = new Array(len).fill(null);
+        const senkouARaw = new Array(len).fill(null);
+        const senkouBRaw = new Array(len).fill(null);
+        const chikou = new Array(len).fill(null);
+
+        for (let i = 0; i < len; i++) {
+            tenkan[i] = midpoint(tenkanPeriod, i);
+            kijun[i] = midpoint(kijunPeriod, i);
+            if (tenkan[i] !== null && kijun[i] !== null) {
+                senkouARaw[i] = (tenkan[i] + kijun[i]) / 2;
+            }
+            senkouBRaw[i] = midpoint(senkouBPeriod, i);
+        }
+
+        // Senkou Span A/B: displacement kadar ileri kaydırılır (yalnızca gerçek bar aralığında).
+        const senkouA = new Array(len).fill(null);
+        const senkouB = new Array(len).fill(null);
+        for (let i = 0; i < len; i++) {
+            const srcIdx = i - displacement;
+            if (srcIdx >= 0) {
+                senkouA[i] = senkouARaw[srcIdx];
+                senkouB[i] = senkouBRaw[srcIdx];
+            }
+        }
+
+        // Chikou Span: kapanış fiyatı displacement kadar geriye kaydırılır.
+        for (let i = 0; i < len; i++) {
+            const dstIdx = i - displacement;
+            if (dstIdx >= 0) {
+                chikou[dstIdx] = closes[i];
+            }
+        }
+
+        return {
+            tenkan: tenkan.map(v => v === null ? null : +v.toFixed(4)),
+            kijun: kijun.map(v => v === null ? null : +v.toFixed(4)),
+            senkouA: senkouA.map(v => v === null ? null : +v.toFixed(4)),
+            senkouB: senkouB.map(v => v === null ? null : +v.toFixed(4)),
+            chikou: chikou.map(v => v === null ? null : +v.toFixed(4))
+        };
+    }
+
+    /**
+     * Compute Parabolic SAR (Stop and Reverse) — Wilder'in standart algoritması.
+     * Görselleştirme: nokta işaretleyici yerine ince noktalı çizgi olarak
+     * gösterilecektir (bkz. tradingChart.js) — bu dürüst bir basitleştirmedir.
+     */
+    function computeParabolicSAR(candles, step = 0.02, maxStep = 0.2) {
+        const len = candles.length;
+        const sar = new Array(len).fill(null);
+        if (len < 2) return sar;
+
+        let isUptrend = candles[1].close >= candles[0].close;
+        let af = step;
+        let ep = isUptrend ? candles[0].high : candles[0].low;
+        let sarValue = isUptrend ? candles[0].low : candles[0].high;
+
+        sar[0] = +sarValue.toFixed(4);
+
+        for (let i = 1; i < len; i++) {
+            let nextSar = sarValue + af * (ep - sarValue);
+
+            if (isUptrend) {
+                // SAR, önceki iki barın en düşüğünü aşamaz.
+                const prevLow1 = candles[i - 1].low;
+                const prevLow2 = i >= 2 ? candles[i - 2].low : prevLow1;
+                nextSar = Math.min(nextSar, prevLow1, prevLow2);
+
+                if (candles[i].low < nextSar) {
+                    // Trend dönüşü: yükselişten düşüşe.
+                    isUptrend = false;
+                    nextSar = ep;
+                    ep = candles[i].low;
+                    af = step;
+                } else {
+                    if (candles[i].high > ep) { ep = candles[i].high; af = Math.min(af + step, maxStep); }
+                }
+            } else {
+                const prevHigh1 = candles[i - 1].high;
+                const prevHigh2 = i >= 2 ? candles[i - 2].high : prevHigh1;
+                nextSar = Math.max(nextSar, prevHigh1, prevHigh2);
+
+                if (candles[i].high > nextSar) {
+                    // Trend dönüşü: düşüşten yükselişe.
+                    isUptrend = true;
+                    nextSar = ep;
+                    ep = candles[i].high;
+                    af = step;
+                } else {
+                    if (candles[i].low < ep) { ep = candles[i].low; af = Math.min(af + step, maxStep); }
+                }
+            }
+
+            sarValue = nextSar;
+            sar[i] = +sarValue.toFixed(4);
+        }
+
+        return sar;
+    }
+
+    /**
+     * Compute classical (floor-trader) Pivot Points from the most recently
+     * COMPLETED candle (henüz oluşmakta olan son bar hariç). Bunlar bir
+     * zaman serisi değil, yatay destek/direnç seviyeleridir — grafik
+     * üzerinde createPriceLine() ile statik çizgiler olarak gösterilir
+     * (RSI'nin 70/30 referans çizgileriyle aynı desen).
+     */
+    function computePivotPoints(candles, dailyCandles) {
+        // (2 Ağustos 2026 — revize planı madde 4) Standart pivot noktaları HER ZAMAN
+        // bir önceki TAM TİCARET GÜNÜNÜN yüksek/düşük/kapanışına göre hesaplanır —
+        // grafikte hangi çözünürlük (5dk/15dk/1s/günlük) gösteriliyor olursa olsun
+        // aynı kalmaları gerekir. Eskiden bu fonksiyona doğrudan o anki ÇÖZÜNÜRLÜĞE
+        // göre türetilmiş `candles` (intraday barlar) veriliyordu ve referans bar
+        // `candles[candles.length-2]` — yani bir önceki 5/15 dakikalık bar — oluyordu.
+        // Kısa intraday barların high-low aralığı çok dar olduğundan (özellikle düşük
+        // volatilitede), P/R1/R2/R3/S1/S2/S3 hepsi neredeyse aynı değere denk geliyor,
+        // "tüm pivot seviyeleri aynı" şikayetine yol açıyordu. Düzeltme: `dailyCandles`
+        // (her zaman GÜNLÜK çözünürlükteki gerçek kaynak veri) verildiyse referans
+        // olarak SON TAMAMLANMIŞ GÜNLÜK barı kullan; verilmediyse (geriye dönük
+        // uyumluluk) eski davranışa (verilen `candles` dizisinin sondan ikincisi) düş.
+        const source = (Array.isArray(dailyCandles) && dailyCandles.length >= 2) ? dailyCandles : candles;
+        if (!source || source.length < 2) return null;
+        const ref = source[source.length - 2]; // son tamamlanmış gün
+        const { high, low, close } = ref;
+        const p = (high + low + close) / 3;
+        const r1 = 2 * p - low;
+        const s1 = 2 * p - high;
+        const r2 = p + (high - low);
+        const s2 = p - (high - low);
+        const r3 = high + 2 * (p - low);
+        const s3 = low - 2 * (high - p);
+
+        const round4 = v => +v.toFixed(4);
+        return {
+            p: round4(p),
+            r1: round4(r1), r2: round4(r2), r3: round4(r3),
+            s1: round4(s1), s2: round4(s2), s3: round4(s3)
+        };
+    }
+
+    /**
+     * Compute SuperTrend (ATR tabanlı trend-takip göstergesi).
+     *
+     * İki ayrı seri döndürülür — `up` (yükseliş trendindeyken dolu, düşüş
+     * trendindeyken null) ve `down` (tam tersi). Bu, tek bir çizgiyi trend
+     * yönüne göre iki renkli göstermenin (gerçek TradingView'daki gibi
+     * yeşil/kırmızı segmentler) Lightweight Charts'ta nokta-bazlı renk API'si
+     * olmadan yapılabilecek dürüst/doğru yolu — her iki seri de candleSeries
+     * üzerinde AYNI çizginin farklı segmentleri, sahte/ekstra veri değil.
+     */
+    function computeSuperTrend(candles, period = 10, multiplier = 3) {
+        const len = candles.length;
+        const atr = computeATR(candles, period);
+        const up = new Array(len).fill(null);
+        const down = new Array(len).fill(null);
+        if (len < period + 1) return { up, down };
+
+        let finalUpper = null, finalLower = null, trendUp = true;
+
+        for (let i = 0; i < len; i++) {
+            if (atr[i] === null || atr[i] === undefined) continue;
+            const mid = (candles[i].high + candles[i].low) / 2;
+            const basicUpper = mid + multiplier * atr[i];
+            const basicLower = mid - multiplier * atr[i];
+
+            if (finalUpper === null) {
+                finalUpper = basicUpper;
+                finalLower = basicLower;
+            } else {
+                const prevClose = candles[i - 1].close;
+                finalUpper = (basicUpper < finalUpper || prevClose > finalUpper) ? basicUpper : finalUpper;
+                finalLower = (basicLower > finalLower || prevClose < finalLower) ? basicLower : finalLower;
+            }
+
+            const close = candles[i].close;
+            if (trendUp) {
+                if (close < finalLower) trendUp = false;
+            } else {
+                if (close > finalUpper) trendUp = true;
+            }
+
+            const value = trendUp ? finalLower : finalUpper;
+            if (trendUp) up[i] = +value.toFixed(4); else down[i] = +value.toFixed(4);
+        }
+
+        return { up, down };
+    }
+
+    /**
+     * Compute Commodity Channel Index (CCI).
+     */
+    function computeCCI(candles, period = 20) {
+        const len = candles.length;
+        const cci = new Array(len).fill(null);
+        const typical = candles.map(c => (c.high + c.low + c.close) / 3);
+
+        for (let i = period - 1; i < len; i++) {
+            let sum = 0;
+            for (let j = i - period + 1; j <= i; j++) sum += typical[j];
+            const mean = sum / period;
+            let meanDev = 0;
+            for (let j = i - period + 1; j <= i; j++) meanDev += Math.abs(typical[j] - mean);
+            meanDev /= period;
+            cci[i] = meanDev === 0 ? 0 : +((typical[i] - mean) / (0.015 * meanDev)).toFixed(2);
+        }
+        return cci;
+    }
+
+    /**
+     * Compute Keltner Channels (EMA orta çizgi + ATR tabanlı üst/alt bant).
+     */
+    function computeKeltnerChannels(candles, period = 20, atrPeriod = 10, multiplier = 2) {
+        const closes = candles.map(c => c.close);
+        const middle = computeEMA(closes, period);
+        const atr = computeATR(candles, atrPeriod);
+        const len = candles.length;
+        const upper = new Array(len).fill(null);
+        const lower = new Array(len).fill(null);
+
+        for (let i = 0; i < len; i++) {
+            if (middle[i] === null || middle[i] === undefined || atr[i] === null || atr[i] === undefined) continue;
+            upper[i] = +(middle[i] + multiplier * atr[i]).toFixed(4);
+            lower[i] = +(middle[i] - multiplier * atr[i]).toFixed(4);
+        }
+        return { middle, upper, lower };
+    }
+
+    /**
+     * Compute Donchian Channels (belirli periyottaki en yüksek/en düşük).
+     */
+    function computeDonchianChannels(candles, period = 20) {
+        const len = candles.length;
+        const upper = new Array(len).fill(null);
+        const lower = new Array(len).fill(null);
+        const middle = new Array(len).fill(null);
+
+        for (let i = period - 1; i < len; i++) {
+            let hh = -Infinity, ll = Infinity;
+            for (let j = i - period + 1; j <= i; j++) {
+                if (candles[j].high > hh) hh = candles[j].high;
+                if (candles[j].low < ll) ll = candles[j].low;
+            }
+            upper[i] = +hh.toFixed(4);
+            lower[i] = +ll.toFixed(4);
+            middle[i] = +((hh + ll) / 2).toFixed(4);
+        }
+        return { upper, lower, middle };
+    }
+
+    /**
+     * Compute Money Flow Index (hacim ağırlıklı RSI benzeri osilatör).
+     */
+    function computeMFI(candles, period = 14) {
+        const len = candles.length;
+        const mfi = new Array(len).fill(null);
+        const typical = candles.map(c => (c.high + c.low + c.close) / 3);
+        const rawFlow = candles.map((c, i) => typical[i] * (c.volume || 0));
+
+        for (let i = period; i < len; i++) {
+            let posFlow = 0, negFlow = 0;
+            for (let j = i - period + 1; j <= i; j++) {
+                if (typical[j] > typical[j - 1]) posFlow += rawFlow[j];
+                else if (typical[j] < typical[j - 1]) negFlow += rawFlow[j];
+            }
+            if (negFlow === 0) {
+                mfi[i] = 100;
+            } else {
+                const moneyRatio = posFlow / negFlow;
+                mfi[i] = +(100 - (100 / (1 + moneyRatio))).toFixed(2);
+            }
+        }
+        return mfi;
+    }
+
+    /**
+     * Compute Average True Range (Wilder's smoothing).
+     */
+    function computeATR(candles, period = 14) {
+        const len = candles.length;
+        const atr = new Array(len).fill(null);
+        if (len <= period) return atr;
+
+        const tr = new Array(len).fill(0);
+        for (let i = 0; i < len; i++) {
+            if (i === 0) { tr[i] = candles[i].high - candles[i].low; continue; }
+            const highLow = candles[i].high - candles[i].low;
+            const highClose = Math.abs(candles[i].high - candles[i - 1].close);
+            const lowClose = Math.abs(candles[i].low - candles[i - 1].close);
+            tr[i] = Math.max(highLow, highClose, lowClose);
+        }
+
+        let sum = 0;
+        for (let i = 0; i < period; i++) sum += tr[i];
+        let prevAtr = sum / period;
+        atr[period - 1] = +prevAtr.toFixed(4);
+
+        for (let i = period; i < len; i++) {
+            prevAtr = (prevAtr * (period - 1) + tr[i]) / period;
+            atr[i] = +prevAtr.toFixed(4);
+        }
+        return atr;
+    }
+
+    /**
+     * Compute ADX (Average Directional Index) with Wilder smoothing.
+     */
+    function computeADX(candles, period = 14) {
+        const len = candles.length;
+        const adx = new Array(len).fill(null);
+        if (len <= period * 2) return adx;
+
+        const plusDM = new Array(len).fill(0);
+        const minusDM = new Array(len).fill(0);
+        const tr = new Array(len).fill(0);
+
+        for (let i = 1; i < len; i++) {
+            const upMove = candles[i].high - candles[i - 1].high;
+            const downMove = candles[i - 1].low - candles[i].low;
+            plusDM[i] = (upMove > downMove && upMove > 0) ? upMove : 0;
+            minusDM[i] = (downMove > upMove && downMove > 0) ? downMove : 0;
+            const highLow = candles[i].high - candles[i].low;
+            const highClose = Math.abs(candles[i].high - candles[i - 1].close);
+            const lowClose = Math.abs(candles[i].low - candles[i - 1].close);
+            tr[i] = Math.max(highLow, highClose, lowClose);
+        }
+
+        let smoothTR = 0, smoothPlusDM = 0, smoothMinusDM = 0;
+        for (let i = 1; i <= period; i++) {
+            smoothTR += tr[i];
+            smoothPlusDM += plusDM[i];
+            smoothMinusDM += minusDM[i];
+        }
+
+        const dxValues = [];
+        for (let i = period; i < len; i++) {
+            if (i > period) {
+                smoothTR = smoothTR - (smoothTR / period) + tr[i];
+                smoothPlusDM = smoothPlusDM - (smoothPlusDM / period) + plusDM[i];
+                smoothMinusDM = smoothMinusDM - (smoothMinusDM / period) + minusDM[i];
+            }
+            const plusDI = smoothTR > 0 ? (smoothPlusDM / smoothTR) * 100 : 0;
+            const minusDI = smoothTR > 0 ? (smoothMinusDM / smoothTR) * 100 : 0;
+            const diSum = plusDI + minusDI;
+            const dx = diSum > 0 ? (Math.abs(plusDI - minusDI) / diSum) * 100 : 0;
+            dxValues.push(dx);
+        }
+
+        let adxVal = null;
+        for (let i = 0; i < dxValues.length; i++) {
+            const idx = period + i;
+            if (i === period - 1) {
+                let sum = 0;
+                for (let j = 0; j < period; j++) sum += dxValues[j];
+                adxVal = sum / period;
+                adx[idx] = +adxVal.toFixed(2);
+            } else if (i >= period) {
+                adxVal = (adxVal * (period - 1) + dxValues[i]) / period;
+                adx[idx] = +adxVal.toFixed(2);
+            }
+        }
+        return adx;
+    }
+
+    /**
+     * Compute On-Balance Volume (cumulative).
+     */
+    function computeOBV(candles) {
+        const len = candles.length;
+        const obv = new Array(len).fill(0);
+        for (let i = 1; i < len; i++) {
+            if (candles[i].close > candles[i - 1].close) obv[i] = obv[i - 1] + candles[i].volume;
+            else if (candles[i].close < candles[i - 1].close) obv[i] = obv[i - 1] - candles[i].volume;
+            else obv[i] = obv[i - 1];
+        }
+        return obv;
+    }
+
+    /**
+     * Compute rolling minimum of lows of previous period.
+     */
+    function computeSupport(candles, period = 15) {
+        const support = [];
+        for (let i = 0; i < candles.length; i++) {
+            if (i < period) {
+                support.push(null);
+                continue;
+            }
+            let minLow = Infinity;
+            for (let j = i - period; j <= i - 1; j++) {
+                if (candles[j].low < minLow) {
+                    minLow = candles[j].low;
+                }
+            }
+            support.push(minLow);
+        }
+        return support;
+    }
+
+    /**
+     * Compute rolling maximum of highs of previous period.
+     */
+    function computeResistance(candles, period = 15) {
+        const resistance = [];
+        for (let i = 0; i < candles.length; i++) {
+            if (i < period) {
+                resistance.push(null);
+                continue;
+            }
+            let maxHigh = -Infinity;
+            for (let j = i - period; j <= i - 1; j++) {
+                if (candles[j].high > maxHigh) {
+                    maxHigh = candles[j].high;
+                }
+            }
+            resistance.push(maxHigh);
+        }
+        return resistance;
+    }
+
+    /* (23 Temmuz 2026, on üçüncü oturum — "motoru güçlendirme" temizliği)
+       runStrategy() ve calculateMetrics() burada duruyordu — ikisi de SADECE
+       app.js'in artık kaldırılmış eski Canvas backtest pipeline'ından
+       (runPipeline üzerinden) çağrılıyordu, başka hiçbir canlı özellik
+       kullanmıyordu (grep ile doğrulandı). calculateIndicators() (hemen altta)
+       ayrı bir fonksiyon ve HÂLÂ CANLI — tradingChart.js onu doğrudan
+       kullanıyor, o yüzden dokunulmadı. */
+    /* (yukarıdaki temizlik yorumunda açıklanan iki fonksiyon burada
+       tamamen kaldırıldı.) */
+
+    /**
+     * Compute a comprehensive set of technical indicators from OHLCV candles.
+     *
+     * @param {Array} candles — array of {open, high, low, close, volume} objects
+     * @returns {{
+     *   sma20: (number|null)[],
+     *   sma50: (number|null)[],
+     *   sma200: (number|null)[],
+     *   bollingerUpper: (number|null)[],
+     *   bollingerMiddle: (number|null)[],
+     *   bollingerLower: (number|null)[],
+     *   vwap: number[],
+     *   ichimoku: {tenkan, kijun, senkouA, senkouB, chikou},
+     *   psar: (number|null)[],
+     *   pivotPoints: {p, r1, r2, r3, s1, s2, s3}|null
+     * }}
+     */
+    function calculateIndicators(candles, dailyCandles) {
+        const closes = candles.map(c => c.close);
+
+        // --- Simple Moving Averages ---
+        const sma20  = computeSMA(closes, 20);
+        const sma50  = computeSMA(closes, 50);
+        const sma200 = computeSMA(closes, 200);
+
+        // --- Exponential Moving Averages ---
+        const ema9  = computeEMA(closes, 9);
+        const ema21 = computeEMA(closes, 21);
+
+        // --- Weighted Moving Average (onuncu oturum — indikatör çeşitlendirme) ---
+        const wma20 = computeWMA(closes, 20);
+
+        // --- Oscillators ---
+        const rsi14 = computeRSI(closes, 14);
+        const macd = computeMACD(closes, 12, 26, 9);
+        const stochastic = computeStochastic(candles, 14, 3);
+        const atr14 = computeATR(candles, 14);
+        const adx14 = computeADX(candles, 14);
+        const obv = computeOBV(candles);
+        const willr14 = computeWilliamsR(candles, 14);
+
+        // --- Ichimoku Cloud / Parabolic SAR / Pivot Points (üçüncü tur — indikatör çeşitlendirme) ---
+        const ichimoku = computeIchimoku(candles);
+        const psar = computeParabolicSAR(candles);
+        const pivotPoints = computePivotPoints(candles, dailyCandles);
+
+        // --- SuperTrend / CCI / Keltner / Donchian / MFI (dördüncü tur — indikatör çeşitlendirme) ---
+        const supertrend = computeSuperTrend(candles);
+        const cci20 = computeCCI(candles, 20);
+        const keltner = computeKeltnerChannels(candles);
+        const donchian = computeDonchianChannels(candles);
+        const mfi14 = computeMFI(candles, 14);
+
+        // --- Bollinger Bands (20-period, 2 std-dev) ---
+        const bbPeriod = 20;
+        const bbMult   = 2;
+        const bollingerUpper  = [];
+        const bollingerMiddle = sma20;          // alias
+        const bollingerLower  = [];
+
+        for (let i = 0; i < closes.length; i++) {
+            if (i < bbPeriod - 1) {
+                bollingerUpper.push(null);
+                bollingerLower.push(null);
+                continue;
+            }
+            // rolling standard deviation over the window
+            const mean = sma20[i];              // already computed
+            let sumSq = 0;
+            for (let j = i - bbPeriod + 1; j <= i; j++) {
+                const diff = closes[j] - mean;
+                sumSq += diff * diff;
+            }
+            const stddev = Math.sqrt(sumSq / bbPeriod);
+            bollingerUpper.push(+(mean + bbMult * stddev).toFixed(4));
+            bollingerLower.push(+(mean - bbMult * stddev).toFixed(4));
+        }
+
+        // --- Cumulative VWAP (gün içi sıfırlamalı) ---
+        // (2 Ağustos 2026 — revize planı madde 5) VWAP tanımı gereği GÜN İÇİ bir
+        // göstergedir — her ticaret seansının başında (bar 0) sıfırdan başlayıp o
+        // seans içinde kümülatif olarak hesaplanması gerekir. Eskiden `cumTPV`/
+        // `cumVol` HİÇBİR ZAMAN sıfırlanmıyordu; state.candles'ta yüklü TÜM geçmiş
+        // (intraday çözünürlükte 750 güne kadar) boyunca tek bir kümülatif toplam
+        // birikiyordu. Bu durumda VWAP çizgisi zamanla neredeyse sabit bir "tüm
+        // zamanların ortalaması"na yakınsıyor, güncel fiyat hareketinden kopuk ve
+        // anlamsız bir seviyede donup kalıyordu. Düzeltme: her barın UTC tarihinden
+        // takvim günü anahtarı çıkarılıyor; gün değiştiğinde kümülatif toplamlar
+        // sıfırlanıp o günün VWAP hesabı yeniden başlıyor.
+        const vwap = [];
+        let cumTPV = 0;   // cumulative (typicalPrice × volume) — gün içinde
+        let cumVol = 0;   // cumulative volume — gün içinde
+        let vwapDayKey = null;
+
+        for (let i = 0; i < candles.length; i++) {
+            const c = candles[i];
+            const d = new Date(c.date * 1000);
+            const dayKey = d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+            if (dayKey !== vwapDayKey) {
+                cumTPV = 0;
+                cumVol = 0;
+                vwapDayKey = dayKey;
+            }
+            const tp = (c.high + c.low + c.close) / 3;
+            cumTPV += tp * c.volume;
+            cumVol += c.volume;
+            vwap.push(+(cumTPV / (cumVol || 1)).toFixed(4));
+        }
+
+        return {
+            sma20, sma50, sma200, ema9, ema21, wma20,
+            bollingerUpper, bollingerMiddle, bollingerLower, vwap,
+            rsi14, macd, stochastic, atr14, adx14, obv, willr14,
+            ichimoku, psar, pivotPoints,
+            supertrend, cci20, keltner, donchian, mfi14
+        };
+    }
+
+    /* (23 Temmuz 2026, on üçüncü oturum — "motoru güçlendirme" temizliği)
+       Burada önceden SVG path yardımcıları (buildSvgPath / buildDrawdownSvgPath /
+       buildCandlestickSvg), tam pipeline fonksiyonu (runPipeline), ve backend
+       backtest görev durumunu yoklayan yardımcılar (pollBacktestStatus,
+       startOhlcvPolling, stopOhlcvPolling) vardı — hepsi SADECE app.js'in
+       artık kaldırılmış eski Canvas backtest pipeline'ından çağrılıyordu ve
+       başka hiçbir yerden ulaşılamıyordu (grep ile doğrulandı). Bu yüzden bu
+       fonksiyonlar da o temizlikle birlikte kaldırıldı. */
+
+    /* ──────────────── Public API ──────────────── */
+
+    return Object.freeze({
+        STOCK_PROFILES,
+        BIST100,
+        TRADING_DAYS,
+        isMarketOpenNow,
+        getLogoUrl,
+        getLogoFallback,
+        buildLogoHtml,
+
+        // Data generation
+        generateOHLCV,
+        generateAllOHLCV,
+        synthesizeIntradayCandles,
+        aggregateWeeklyCandles,
+        aggregateMonthlyCandles,
+
+        // Strategy
+        computeSMA,
+        computeEMA,
+        computeWMA,
+        computeRSI,
+        computeMACD,
+        computeBollingerBands,
+        computeStochastic,
+        computeATR,
+        computeADX,
+        computeOBV,
+        computeWilliamsR,
+        computeIchimoku,
+        computeParabolicSAR,
+        computePivotPoints,
+        computeSuperTrend,
+        computeCCI,
+        computeKeltnerChannels,
+        computeDonchianChannels,
+        computeMFI,
+        computeSupport,
+        computeResistance,
+
+        // Metrics
+        calculateIndicators,
+
+        normalizeTicker
+    });
+})();
+
+/* Expose globally for non-module script consumption */
+window.DataController = DataController;

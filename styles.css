@@ -1,0 +1,6093 @@
+/* ==========================================================================
+   OPTIPULSELAB CORE STYLESHEET
+   Strict Color Palette:
+   - Primary BG: Deep Black (#121212)
+   - Panels/Containers: Dark Gray (#1E1E1E)
+   - Accents/Interactive: Metallic Gold (#D4AF37)
+   ========================================================================== */
+
+/* --- Custom Design System Variables --- */
+:root {
+    --bg-main: #121212;
+    --bg-panel: #1E1E1E;
+    --bg-sidebar: #171717;
+    --bg-card: #222222;
+    --bg-input: #1A1A1A;
+    
+    /* Strict Metallic Gold & Tonal Variants */
+    --gold: #D4AF37;
+    --gold-light: #F3E5AB;
+    --gold-dark: #AA7C11;
+    --gold-glow: rgba(212, 175, 55, 0.35);
+    --gold-dim: rgba(212, 175, 55, 0.12);
+    --gold-border: rgba(212, 175, 55, 0.2);
+
+    /* Text & Status Colors */
+    --text-primary: #F0F0F0;
+    --text-secondary: #AAAAAA;
+    --text-muted: #666666;
+    --text-dark: #121212;
+    
+    --success: #2E7D32;
+    --danger: #C62828;
+    --warning: #EF6C00;
+
+    /* Subtle surface tints/hairlines (panel backgrounds, borders, hover states).
+       Defined as white-alpha overlays for the dark theme; the light theme
+       below flips these to black-alpha overlays so every component that
+       uses them (borders, row stripes, modal backgrounds, etc.) adapts
+       automatically without per-component overrides. */
+    --tint-02: rgba(255, 255, 255, 0.02);
+    --tint-025: rgba(255, 255, 255, 0.025);
+    --tint-03: rgba(255, 255, 255, 0.03);
+    --tint-04: rgba(255, 255, 255, 0.04);
+    --tint-05: rgba(255, 255, 255, 0.05);
+    --tint-06: rgba(255, 255, 255, 0.06);
+    --tint-08: rgba(255, 255, 255, 0.08);
+    --tint-14: rgba(255, 255, 255, 0.14);
+    --tint-25: rgba(255, 255, 255, 0.25);
+
+    /* "Glass" panels that float directly over the chart canvas (crosshair
+       tooltip, OHLC legend, price-action overlay stats). These stay a dark
+       translucent panel in dark mode; the light theme flips them to a light
+       translucent panel so their (theme-aware) text stays readable. */
+    --glass-bg-1: rgba(30, 30, 30, 0.8);
+    --glass-bg-2: rgba(18, 18, 18, 0.92);
+    --glass-bg-3: rgba(18, 18, 18, 0.75);
+
+    /* Fonts & Radii */
+    --font-sans: 'Outfit', sans-serif;
+    --font-mono: 'Fira Code', monospace;
+    --radius-lg: 12px;
+    --radius-md: 8px;
+    --radius-sm: 4px;
+    --transition-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    --transition-fast: all 0.15s ease-out;
+
+    /* (18 Temmuz 2026, dördüncü tur, Madde 5c — ikon boyutu tutarlılığı)
+       Denetimde mevcut ikonların zaten büyük ölçüde 14px (araç çubuğu/rail
+       butonları) ve 16px (üst bar butonları) olarak tutarlı kullanıldığı
+       görüldü; var olan yüzlerce inline SVG'yi riske atarak toptan
+       değiştirmek yerine, bundan sonraki yeni bileşenlerin aynı ölçekte
+       kalması için isim tokenları tanımlıyoruz. */
+    --icon-size-sm: 14px;
+    --icon-size-md: 16px;
+    --icon-size-lg: 20px;
+}
+
+/* --- Light theme overrides (applied via [data-theme="light"] on <html>) --- */
+[data-theme="light"] {
+    --bg-main: #F4F5F7;
+    --bg-panel: #FFFFFF;
+    --bg-sidebar: #F8F9FB;
+    --bg-card: #FFFFFF;
+    --bg-input: #F0F1F4;
+
+    --gold: #B8860B;
+    --gold-light: #8A6100;
+    --gold-dark: #6B4E00;
+    --gold-glow: rgba(184, 134, 11, 0.30);
+    --gold-dim: rgba(184, 134, 11, 0.10);
+    --gold-border: rgba(184, 134, 11, 0.28);
+
+    --text-primary: #1A1A1A;
+    --text-secondary: #55575C;
+    --text-muted: #8A8D93;
+    --text-dark: #121212;
+
+    --success: #1E7D32;
+    --danger: #C62828;
+    --warning: #B15C00;
+
+    --tint-02: rgba(20, 22, 28, 0.03);
+    --tint-025: rgba(20, 22, 28, 0.035);
+    --tint-03: rgba(20, 22, 28, 0.045);
+    --tint-04: rgba(20, 22, 28, 0.055);
+    --tint-05: rgba(20, 22, 28, 0.07);
+    --tint-06: rgba(20, 22, 28, 0.09);
+    --tint-08: rgba(20, 22, 28, 0.11);
+    --tint-14: rgba(20, 22, 28, 0.18);
+    --tint-25: rgba(20, 22, 28, 0.32);
+
+    --glass-bg-1: rgba(255, 255, 255, 0.85);
+    --glass-bg-2: rgba(255, 255, 255, 0.92);
+    --glass-bg-3: rgba(255, 255, 255, 0.82);
+}
+
+[data-theme="light"] body {
+    background-color: var(--bg-main);
+}
+
+/* A few components draw pure-black/white shadows and glass effects that read
+   fine in dark mode but need lightening so panels don't look muddy. */
+[data-theme="light"] .content-card,
+[data-theme="light"] .sidebar-panel,
+[data-theme="light"] .trading-panel {
+    box-shadow: 0 1px 3px rgba(20, 22, 28, 0.08);
+}
+
+/* --- "Kurumsal Mavi" (fintech) tema override'ları (uygulanma şekli
+   [data-theme="fintech"] on <html>) ---
+   (9 Ağustos 2026 — admin panelinden kontrol) Kullanıcının kendi Koyu/Açık
+   tercihinin YERİNE geçen, SADECE FinTeClub admin panelinden (finteclub/
+   shared_state.oplabFintechTheme alanı → finteclubBridge.js →
+   tradingEngine.js setAdminForcedTheme()) tüm kullanıcılara aynı anda
+   zorunlu kılınabilen TEK bir şablon. Kullanıcının kendi tema butonundan
+   ERİŞİLEMEZ — bilinçli olarak öyle tasarlandı (kullanıcı isteği: "sadece
+   koyu mavi finteclub renk modalı ile aynı şablon, tek şablon, herkese
+   anında zorunlu uygula").
+   Renkler İCAT EDİLMEDİ — admin.html/index.html (FinTeClub)'ın kendi
+   :root renk paletinden (--bg/--bg-soft/--card-bg/--blue/--blue-dark/
+   --green/--red) BİREBİR alındı, ki "aynı şablon" hissi gerçekten doğru
+   olsun. --success/--danger/--warning BİLEREK dokunulmuyor (zaten FinTeClub
+   ile aynı kırmızı/yeşil, ayrıca değiştirmeye gerek yok). Tint ve glass-bg
+   değişkenleri de override EDİLMİYOR — :root'un beyaz-alfa overlay'leri koyu
+   lacivert zeminde de doğru görünür. Grafik canvas'ının kendi ayrı renk
+   mutasyonu var — bkz. tradingChart.js applyChartColorPaletteForTheme() ve
+   multiChartGrid.js applyGridColorPaletteForTheme(). */
+[data-theme="fintech"] {
+    --bg-main: #060913;      /* FinTeClub --bg */
+    --bg-panel: #0a1020;     /* FinTeClub --bg-soft */
+    --bg-sidebar: #080c18;   /* FinTeClub --sidebar-bg */
+    --bg-card: #111a2e;      /* FinTeClub --card-bg */
+    --bg-input: #0d1526;     /* FinTeClub --card-bg-2 */
+
+    --gold: #3d6fee;         /* FinTeClub --blue */
+    --gold-light: #7ea3ff;   /* FinTeClub gradient/accent-text mavi tonu */
+    --gold-dark: #1c2f5e;    /* FinTeClub --blue-dark */
+    --gold-glow: rgba(61, 111, 238, 0.30);   /* FinTeClub --blue-glow */
+    --gold-dim: rgba(61, 111, 238, 0.12);
+    --gold-border: rgba(61, 111, 238, 0.24);
+
+    --text-primary: #f3f5fa;    /* FinTeClub --text */
+    --text-secondary: #8b93ab;  /* FinTeClub --text-dim */
+    --text-muted: #575f75;      /* FinTeClub --text-dimmer */
+    --text-dark: #0a1020;
+}
+
+[data-theme="fintech"] body {
+    background-color: var(--bg-main);
+}
+
+[data-theme="fintech"] .content-card,
+[data-theme="fintech"] .sidebar-panel,
+[data-theme="fintech"] .trading-panel {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+/* --- Document Resets & Base Styles --- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.5;
+    height: 100vh;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Scrollbar Styles for Quantitative Look */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--gold);
+}
+
+/* --- Layout Grid --- */
+.dashboard-container {
+    display: grid;
+    grid-template-rows: 64px 1fr 32px;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* --- Header Section --- */
+.dashboard-header {
+    grid-row: 1;
+    background-color: var(--bg-sidebar);
+    border-bottom: 1px solid var(--gold-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+    z-index: 10;
+    /* (dördüncü tur, Madde 2) Header'ın hiçbir zaman iki satıra bölünmemesi
+       için: flex öğeleri sarmasın, taşma durumunda içerik kırpılsın/gizlensin
+       (buton etiketlerinin ikon-only'e düşmesi zaten var olan bir mekanizma —
+       bkz. 640px medya sorgusu) — "sağ sol üste gidiyor" şikayetinin kökü. */
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.pulse-indicator {
+    width: 10px;
+    height: 10px;
+    background-color: var(--gold);
+    border-radius: 50%;
+    position: relative;
+    box-shadow: 0 0 8px var(--gold);
+    animation: goldPulse 2s infinite alternate;
+}
+
+@keyframes goldPulse {
+    0% {
+        box-shadow: 0 0 2px var(--gold);
+        transform: scale(0.9);
+    }
+    100% {
+        box-shadow: 0 0 12px var(--gold), 0 0 20px var(--gold-dark);
+        transform: scale(1.1);
+    }
+}
+
+/* (28 Ağustos 2026 — header sadeleştirme) Bu nokta artık salt dekoratif değil:
+   kaldırılan "Engine: ONLINE/OFFLINE" metin rozetinin yerini alıyor (bkz.
+   app.js → checkBackendHeartbeat/updateEngineTooltip). Backend'e gerçekten
+   ulaşılamadığında kırmızıya dönüp animasyonu durduruyor — sağlıklıyken
+   görünüm eskisiyle birebir aynı (altın rengi, nabız atan). */
+.pulse-indicator.is-offline {
+    background-color: #F44336;
+    box-shadow: 0 0 8px #F44336;
+    animation: none;
+}
+
+/* (27 Ağustos 2026 — "hisse seçtikten sonra çok yavaş" algısal hız düzeltmesi)
+   Sembol seçildiğinde veri gelene kadar header fiyatı önceden sabit bir
+   "---" gösteriyordu — hareketsiz olduğu için kullanıcıya "donmuş/bozuk"
+   gibi görünüyordu. Artık "Yükleniyor…" yazısı hafifçe soluklaşıp-parlayarak
+   nabız atıyor; bu gerçek veri hızını DEĞİŞTİRMEZ ama uygulamanın hâlâ
+   çalıştığını/bir şey beklediğini anında hissettirir. */
+.tv-loading-text {
+    animation: tvLoadingTextPulse 1.1s ease-in-out infinite;
+}
+@keyframes tvLoadingTextPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+}
+
+/* Sembol değişimi sırasında grafik ESKİ sembolün mumlarını göstermeye devam
+   eder (aniden boşalıp "flaş" etkisi yaratmasın diye kasıtlı) — ama bunun
+   ESKİ veri olduğunu belli etmek için hafifçe soluklaştırılıyor, yeni veri
+   gelince (setSymbolHeader tekrar gerçek bir fiyatla çağrılınca) otomatik
+   olarak normale dönüyor. transition sayesinde ani bir titreme değil,
+   yumuşak bir geçiş oluyor. */
+.tv-chart-refreshing {
+    opacity: 0.55;
+    transition: opacity 0.15s ease-out;
+}
+
+.logo-area h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.logo-area h1 span {
+    color: var(--gold);
+    font-weight: 800;
+}
+
+.header-status {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* (28 Ağustos 2026 — header sadeleştirme/yenileme) Saat/Piyasa/Nabız
+   öğeleri önceden birbirinden bağımsız, boşlukla ayrılmış üç ayrı etiket
+   gibi görünüyordu — artık tek, hafif "cam" bir grup içinde, aralarında
+   ince dikey ayraçlarla tek bir bilgi şeridi oluşturuyorlar. Renkler her
+   üç temada da (koyu/açık/FinTeClub) doğru görünsün diye tema değişkenleri
+   (--tint-04, --gold-border) kullanılıyor, sabit renk yok. */
+.header-status-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 6px 14px;
+    background: var(--tint-04);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+}
+
+.header-status-group .status-item + .status-item {
+    position: relative;
+    padding-left: 14px;
+}
+
+.header-status-group .status-item + .status-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    height: 12px;
+    background: var(--tint-14);
+}
+
+/* (29 Temmuz 2026 — Madde 3) Tam genişlikte, sürekli kayan piyasa şeridi.
+   JS tarafı (renderMarketTickerStrip, tradingEngine.js) içeriği İKİ KEZ art
+   arda basıyor (aynı öğe listesi iki kopya) — animasyon %-50 kaydığında
+   ikinci kopya tam olarak ilk kopyanın başladığı yerde olduğu için dikişsiz
+   (seamless) bir döngü oluşuyor. prefers-reduced-motion'a saygı gösteriliyor. */
+.market-ticker-strip {
+    width: 100%;
+    overflow: hidden;
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid var(--gold-border);
+    white-space: nowrap;
+}
+
+.market-ticker-track {
+    display: inline-flex;
+    align-items: center;
+    animation: market-ticker-scroll 40s linear infinite;
+    will-change: transform;
+}
+
+.market-ticker-strip:hover .market-ticker-track {
+    animation-play-state: paused;
+}
+
+@keyframes market-ticker-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+.market-ticker-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 6px 18px;
+    border-right: 1px solid var(--tint-06);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.market-ticker-item .mt-label {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.market-ticker-item .mt-change.profit-text {
+    color: var(--success);
+}
+
+.market-ticker-item .mt-change.loss-text {
+    color: var(--danger);
+}
+
+.market-ticker-loading {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .market-ticker-track {
+        animation: none;
+    }
+}
+
+.status-item {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.status-label {
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.status-value {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+.status-online {
+    color: var(--gold);
+    font-weight: 600;
+    text-shadow: 0 0 4px var(--gold-glow);
+}
+
+/* (18 Temmuz 2026, dördüncü tur, Madde 5a — durum çubuğu sadeleştirme)
+   Motor/Piyasa durumu için küçük bir renkli nokta ekliyoruz. background-color:
+   currentColor sayesinde JS'in bu span'lara doğrudan yazdığı .style.color
+   (ONLINE/CALCULATING/OFFLINE, OPEN/CLOSED) değeri neyse nokta da otomatik
+   onu alır — app.js'teki hiçbir durum-güncelleme koduna dokunmadan, salt
+   CSS ile. */
+#engine-status::before,
+#market-status-val::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+/* --- Header hamburger menu (dördüncü tur, Madde 2) ---
+   Açılma/kapanma deseni tradingChart.js'teki setupChartTypeMenu() ile
+   birebir aynı: position:fixed + getBoundingClientRect, closeOtherModals +
+   closeAllFlyouts ile diğer her şeyi kapatma, dışarı tıklama + Escape. */
+.header-menu-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.header-menu-dropdown {
+    display: none;
+    position: fixed;
+    z-index: 620;
+    min-width: 200px;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    padding: 6px;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.header-menu-dropdown.open {
+    display: flex;
+}
+
+.header-menu-dropdown .btn {
+    width: 100%;
+    justify-content: flex-start;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    box-shadow: none;
+    padding: 8px 10px;
+}
+
+.header-menu-dropdown .btn:hover {
+    background-color: var(--tint-06);
+    color: var(--text-primary, #eaeaea);
+    transform: none;
+}
+
+.header-menu-divider {
+    height: 1px;
+    background-color: var(--tint-08);
+    margin: 4px 2px;
+}
+
+/* (22 Temmuz 2026, on ikinci oturum) Profil simgesi ve açılır paneli — artık
+   header-actions'ın en sağında (kullanıcı isteğiyle logo-area'dan buraya
+   taşındı, bkz. index.html). Açılma/kapanma deseni yukarıdaki
+   .header-menu-dropdown ile birebir aynı (bkz. tradingEngine.js
+   setupProfilePanel()), aynı şekilde SAĞA hizalı açılıyor. */
+.profile-panel-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.profile-panel-dropdown {
+    display: none;
+    position: fixed;
+    z-index: 620;
+    width: 240px;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    padding: 12px;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.profile-panel-dropdown.open {
+    display: flex;
+}
+
+.profile-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 10px;
+}
+
+.profile-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    color: var(--gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 15px;
+    flex-shrink: 0;
+    text-transform: uppercase;
+}
+
+.profile-header-text {
+    min-width: 0;
+}
+
+.profile-name-display {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-header-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.profile-panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 0;
+}
+
+.profile-stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+}
+
+.profile-stat-label {
+    color: var(--text-muted);
+}
+
+.profile-stat-value {
+    font-family: 'Fira Code', monospace;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.profile-stat-value.profit-text { color: var(--success); }
+.profile-stat-value.loss-text { color: var(--danger); }
+
+.profile-settings-label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.profile-name-input {
+    width: 100%;
+    font-size: 12px;
+    padding: 6px 8px;
+}
+
+/* (FinTeClub entegrasyonu) Ortak yardımcı sınıf — birkaç yerde element
+   gizlemek için kullanılıyor (finteclubBridge.js). */
+.hidden { display: none !important; }
+
+/* --- FinTeClub Entegrasyonu: "FinteLig Yarışmacısı" rozeti --- */
+.ftc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--success);
+    background-color: rgba(46, 125, 50, 0.14);
+    border: 1px solid rgba(46, 125, 50, 0.35);
+    border-radius: var(--radius-sm);
+    padding: 2px 7px;
+    letter-spacing: 0.02em;
+}
+
+.ftc-verify-status {
+    font-size: 10.5px;
+    margin-top: 6px;
+    line-height: 1.5;
+    min-height: 14px;
+}
+.ftc-verify-status.ftc-status-ok { color: var(--success); }
+.ftc-verify-status.ftc-status-error { color: var(--danger); }
+.ftc-verify-status.ftc-status-pending { color: var(--text-muted); }
+
+/* --- FinTeClub Entegrasyonu: admin erişimi kapattığında tam ekran kilit --- */
+.ftc-oplab-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    background-color: rgba(10, 10, 10, 0.94);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+.ftc-oplab-gate-box {
+    max-width: 440px;
+    text-align: center;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-lg);
+    padding: 32px 28px;
+}
+.ftc-oplab-gate-title {
+    font-family: var(--font-sans);
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 12px;
+}
+.ftc-oplab-gate-box p {
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    line-height: 1.6;
+}
+
+/* --- FinTeClub Entegrasyonu: açılışta görünen giriş modalı ---
+   (Gerçek Firebase Authentication, 3. tur) Sayfa yüklendiğinde, giriş
+   yapılmamışsa ve daha önce "giriş yapmadan devam et" denmemişse bu modal
+   görünür. Zorunlu DEĞİLDİR — genel ziyaretçiler dilerse hiç giriş yapmadan
+   geçebilir; sadece FinteLig rozeti/takibi isteyenler için vardır.
+   bkz. finteclubBridge.js showLoginModal()/dismissModalPermanently(). */
+.ftc-login-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 950;
+    background-color: rgba(10, 10, 10, 0.86);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+.ftc-login-modal-box {
+    max-width: 400px;
+    width: 100%;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-lg);
+    padding: 30px 26px;
+    text-align: center;
+}
+.ftc-login-modal-title {
+    font-family: var(--font-sans);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 8px;
+}
+.ftc-login-modal-desc {
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+.ftc-login-modal-box .form-input {
+    margin-bottom: 10px;
+    text-align: left;
+    width: 100%;
+}
+.ftc-login-modal-skip {
+    display: block;
+    width: 100%;
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-decoration: underline;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: var(--font-sans);
+}
+.ftc-login-modal-skip:hover { color: var(--text-secondary); }
+.ftc-login-modal-welcome {
+    color: var(--success);
+    font-size: 16px;
+    font-weight: 700;
+    padding: 18px 0;
+}
+
+/* --- Header Balance Pill (demo trading balance, top right) ---
+   (28 Ağustos 2026 — header sadeleştirme/yenileme) Header'da yarışmacının
+   en çok bakacağı rakam bu olduğu için (Latency/Engine metinleri kaldırılıp
+   yer açıldıktan sonra) bilinçli olarak daha büyük/vurgulu/"premium"
+   yapıldı: daha belirgin bir dolgu rengi, hafif bir dış gölge ve biraz
+   daha büyük punto — diğer header öğeleriyle aynı sade paleti kullanıyor
+   (var(--gold)/var(--gold-border)), sadece ölçek ve vurgu arttı. */
+.header-balance-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    padding: 8px 16px;
+    box-shadow: 0 0 0 1px var(--tint-02) inset, 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.header-balance-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.header-balance-value {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--gold);
+    letter-spacing: 0.2px;
+}
+
+/* (10 Ağustos 2026 — "cihaz değiştirince bakiyem sıfırlanıyor" kök neden
+   düzeltmesi) Bakiye 0 görünüyorsa ve bunun sebebi bu cihazda henüz giriş
+   yapılmamış olmasıysa (veri kaybı DEĞİL), pill'i turuncu bir "aksiyon
+   gerekli" rengine çevirip etiketi "Giriş yap" yapıyoruz — dokunmatik
+   cihazlarda hover tooltip'i hiç görmeyen kullanıcılar için de görünür. */
+.header-balance-pill.pill-login-needed {
+    background-color: rgba(255, 167, 38, 0.12);
+    border-color: #FFA726;
+}
+.header-balance-pill.pill-login-needed .header-balance-label,
+.header-balance-pill.pill-login-needed .header-balance-value {
+    color: #FFA726;
+}
+
+/* (29 Temmuz 2026 — Madde 8: bakiyenin yanına Toplam Varlık) */
+.header-equity-block {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-balance-divider {
+    color: var(--text-secondary);
+    opacity: 0.5;
+    font-size: 12px;
+}
+
+/* Dar/orta genişlikte header taşmasını önlemek için Toplam Varlık bloğu
+   gizleniyor (bakiye ana rakam olarak kalıyor) — equity zaten işlem
+   panelindeki #qt-equity ve profil panelindeki #profile-equity-value'de
+   her genişlikte erişilebilir durumda. Eşik 950px: bu blok eklenince
+   header'ın gerçek genişlik ihtiyacı (Playwright ile 700-950px arası
+   ölçüldü, 900px'te hâlâ 7px taşma) ancak ~910-950px arasında karşılanıyor
+   — 950 güvenli/yuvarlak bir eşik olarak seçildi. (NOT: 521-699px
+   arasında, bu blok tamamen kaldırılsa bile ~8-49px'e varan BAĞIMSIZ/
+   ÖNCEDEN VAR OLAN bir taşma tespit edildi — bu değişiklikten kaynaklı
+   değil, bu turun kapsamı dışında, ayrıca not düşüldü.) */
+@media (max-width: 950px) {
+    .header-equity-block {
+        display: none;
+    }
+}
+
+/* --- Common Buttons & Controls --- */
+.btn {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition-fast);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+    border: 1px solid var(--gold);
+    color: var(--text-dark);
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.2);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    box-shadow: 0 4px 12px var(--gold-glow);
+    transform: translateY(-1px);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    border: 1px solid var(--gold-border);
+    color: var(--gold);
+}
+
+.btn-secondary:hover {
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold-light);
+}
+
+/* --- Body Grid --- */
+.dashboard-body {
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: 320px 1fr 340px;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* --- Sidebar Section (Test Parameters) --- */
+.sidebar-panel {
+    grid-column: 1;
+    background-color: var(--bg-sidebar);
+    border-right: 1px solid var(--gold-border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--tint-05);
+}
+
+.panel-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.panel-badge {
+    font-size: 10px;
+    background-color: var(--gold-dim);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.form-group-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.btn-csv-export {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: 1px solid var(--gold-border);
+    color: var(--text-secondary);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-csv-export:hover:not(:disabled) {
+    color: var(--gold-light);
+    border-color: var(--gold);
+    background-color: var(--gold-dim);
+}
+
+.btn-csv-export:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.form-input {
+    width: 100%;
+    background-color: var(--bg-input);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    padding: 10px 14px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    transition: var(--transition-fast);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px var(--gold-dim);
+}
+
+/* Custom Dropdown Selection */
+.select-wrapper {
+    position: relative;
+}
+
+.select-wrapper::after {
+    content: "▼";
+    font-size: 9px;
+    color: var(--gold);
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.select-wrapper select {
+    appearance: none;
+}
+
+/* Custom Checkboxes */
+.indicator-checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* (2 Ağustos 2026 — revize planı madde 7) Farklı periyotlu ikinci RSI paneli
+   ekleme satırı — checkbox listesinin içinde ama bir onay kutusu değil,
+   periyot girişi + "Ekle" düğmesi. */
+.osc-custom-period-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0 6px 26px;
+    margin-top: -2px;
+}
+
+.osc-custom-period-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex: 1 1 auto;
+}
+
+.osc-custom-period-input {
+    width: 56px;
+    flex-shrink: 0;
+    padding: 4px 6px;
+    font-size: 12px;
+}
+
+.checkbox-label input {
+    display: none;
+}
+
+.custom-checkbox {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--gold-border);
+    border-radius: 4px;
+    display: inline-block;
+    position: relative;
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.checkbox-label input:checked + .custom-checkbox {
+    border-color: var(--gold);
+    background-color: var(--gold-dim);
+}
+
+.checkbox-label input:checked + .custom-checkbox::after {
+    content: "✓";
+    font-size: 11px;
+    color: var(--gold);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: bold;
+}
+
+.checkbox-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    transition: var(--transition-fast);
+}
+
+.checkbox-label:hover .checkbox-text {
+    color: var(--gold-light);
+}
+
+.checkbox-label input:checked ~ .checkbox-text {
+    color: var(--text-primary);
+}
+
+/* --- Main Content Panel (Trading Chart + Analytics) --- */
+.main-content-panel {
+    grid-column: 2;
+    background-color: var(--bg-main);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Common Card Panel Styling */
+.content-card {
+    background-color: var(--bg-panel);
+    border-bottom: 1px solid var(--gold-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.content-card:last-child {
+    border-bottom: none;
+}
+
+/* Tab Header Container */
+.tab-header-container {
+    background-color: var(--bg-sidebar);
+    border-bottom: 1px solid var(--gold-border);
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 48px;
+    flex-shrink: 0;
+}
+
+.tab-list {
+    display: flex;
+    gap: 8px;
+    height: 100%;
+    align-items: flex-end;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    padding: 10px 16px;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition-fast);
+}
+
+.tab-btn svg {
+    opacity: 0.6;
+    transition: var(--transition-fast);
+}
+
+.tab-btn:hover {
+    color: var(--gold-light);
+    border-bottom-color: rgba(212, 175, 55, 0.4);
+}
+
+.tab-btn:hover svg {
+    opacity: 1;
+}
+
+.tab-btn.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+    font-weight: 600;
+}
+
+.tab-btn.active svg {
+    opacity: 1;
+    stroke: var(--gold);
+}
+
+.panel-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.indicator-live {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--gold);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    background-color: var(--gold-dim);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* Panel icon button (e.g. maximize/restore toggle in a card header) */
+.panel-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--gold-border);
+    border-radius: 4px;
+    background-color: transparent;
+    color: var(--text-secondary, #9a9a9a);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.panel-icon-btn:hover {
+    color: var(--gold);
+    border-color: var(--gold);
+    background-color: var(--gold-dim);
+}
+
+.accent-text {
+    color: var(--gold);
+    text-shadow: 0 0 6px rgba(212, 175, 55, 0.2);
+}
+
+/* --- Crosshair Tooltip --- */
+.chart-tooltip {
+    display: none;
+    position: absolute;
+    z-index: 20;
+    background-color: var(--glass-bg-2);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    min-width: 130px;
+    pointer-events: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 8px rgba(212, 175, 55, 0.1);
+}
+
+.chart-tooltip .tt-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--gold);
+    font-weight: 600;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.chart-tooltip .tt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 11px;
+    line-height: 1.7;
+}
+
+.chart-tooltip .tt-row span:first-child {
+    color: var(--text-muted);
+    font-weight: 600;
+    font-family: var(--font-sans);
+}
+
+.chart-tooltip .tt-row span:last-child {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+.chart-tooltip .tt-up {
+    color: var(--gold) !important;
+}
+
+.chart-tooltip .tt-down {
+    color: #F44336 !important;
+}
+
+/* Glowing dot in chart (kept for backward compat) */
+.glow-dot {
+    animation: chartDotGlow 1.5s infinite alternate;
+}
+
+@keyframes chartDotGlow {
+    0% {
+        r: 3.5px;
+        fill-opacity: 0.7;
+    }
+    100% {
+        r: 6px;
+        fill-opacity: 1;
+        filter: drop-shadow(0 0 4px var(--gold));
+    }
+}
+
+/* --- Metrics Grid Section --- */
+.metrics-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.metric-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    transition: var(--transition-smooth);
+}
+
+.metric-card:hover {
+    border-color: var(--gold);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 0 6px var(--gold-dim);
+    transform: translateY(-2px);
+}
+
+.card-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+.card-value {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.drawdown-warning {
+    color: var(--danger);
+}
+
+.warning-text {
+    color: var(--danger);
+}
+
+.card-subtext {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Risk Score Gauge Card */
+.risk-score-container {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.risk-score-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.risk-bar-bg {
+    width: 100%;
+    height: 6px;
+    background-color: var(--bg-main);
+    border: 1px solid var(--gold-border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.risk-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #4CAF50 0%, var(--gold) 50%, #F44336 100%);
+    transition: width 0.6s cubic-bezier(0.1, 0.8, 0.25, 1);
+}
+
+.risk-low {
+    color: #4CAF50;
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
+.risk-moderate {
+    color: var(--gold);
+    background-color: var(--gold-dim);
+}
+
+.risk-high {
+    color: #EF6C00;
+    background-color: rgba(239, 108, 0, 0.15);
+}
+
+.risk-extreme {
+    color: #F44336;
+    background-color: rgba(244, 67, 54, 0.15);
+}
+
+/* --- Trade Log Table --- */
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--bg-card);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+
+.data-table th {
+    background-color: var(--bg-sidebar);
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--gold-border);
+    letter-spacing: 0.5px;
+}
+
+.data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--tint-03);
+    color: var(--text-primary);
+}
+
+.data-table tbody tr:hover {
+    background-color: rgba(212, 175, 55, 0.03);
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.font-mono {
+    font-family: var(--font-mono);
+}
+
+.font-bold {
+    font-weight: 600;
+}
+
+/* Badges */
+.badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-long {
+    background-color: rgba(46, 125, 50, 0.15);
+    color: #4CAF50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.badge-short {
+    background-color: rgba(198, 40, 40, 0.15);
+    color: #F44336;
+    border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.badge-closed {
+    background-color: var(--gold-dim);
+    color: var(--gold);
+    border: 1px solid var(--gold-border);
+}
+
+.profit-text {
+    color: #4CAF50;
+    font-weight: 600;
+}
+
+.loss-text {
+    color: #F44336;
+    font-weight: 600;
+}
+
+/* (23 Temmuz 2026 düzeltmesi) Emir bileti içi belirgin uyarı kutusu — bkz.
+   index.html'deki #qt-ticket-alert ve tradingEngine.js'teki
+   showTicketAlert(). Alt bilgi çubuğundaki küçük durum yazısının aksine,
+   bu kutu tam olarak kullanıcının o an baktığı yerde (AL/SAT butonunun
+   hemen üstünde) beliriyor — yetersiz bakiye/kaldıraç gibi emrin neden
+   gerçekleşmediğini anında gösterebilmek için. */
+.qt-ticket-alert {
+    margin: 0 0 10px 0;
+    padding: 9px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    border: 1px solid transparent;
+    animation: ticketAlertIn 0.18s ease-out;
+}
+
+.qt-ticket-alert.qt-alert-error {
+    background-color: rgba(198, 40, 40, 0.14);
+    border-color: rgba(198, 40, 40, 0.45);
+    color: #E57373;
+}
+
+.qt-ticket-alert.qt-alert-info {
+    background-color: var(--gold-dim);
+    border-color: var(--gold-border);
+    color: var(--gold);
+}
+
+@keyframes ticketAlertIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Strategy configuration details view */
+.strategy-details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.detail-block {
+    background-color: var(--bg-card);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+}
+
+.detail-block h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--gold-border);
+    padding-bottom: 8px;
+}
+
+.detail-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.detail-list li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+}
+
+.detail-list li span:first-child {
+    color: var(--text-secondary);
+}
+
+.text-gold {
+    color: var(--gold);
+}
+
+/* --- Footer Section --- */
+.dashboard-footer {
+    grid-row: 3;
+    background-color: var(--bg-sidebar);
+    border-top: 1px solid var(--gold-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.footer-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.indicator-glow {
+    width: 6px;
+    height: 6px;
+    background-color: var(--gold);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--gold);
+    display: inline-block;
+}
+
+.footer-left span {
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* --- Micro animations and enhancements --- */
+@keyframes tabFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(2px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tab-panel.active {
+    animation: tabFadeIn 0.3s ease-out forwards;
+}
+
+/* --- Responsive Adjustments (17 Temmuz 2026, yedinci oturum) ---
+ * Bu bölüm daha önce (backtest dashboard döneminden kalma, artık DOM'da
+ * karşılığı olmayan .metrics-cards-grid/.strategy-details-grid gibi ölü
+ * sınıflara hitap eden) etkisiz kurallar içeriyordu; ayrıca aşağıdaki eski
+ * ".competition-panel { display:none !important; }" kuralı 1200px altında
+ * TÜM işlem panelini (alım/satım ticket'ı, pozisyonlar, emir defteri)
+ * geri getirilemeyecek şekilde tamamen gizliyordu — trading terminaline
+ * dönüşümden sonra bu artık gerçek bir kullanılabilirlik hatası.
+ * Şimdi: dar ekranlarda sidebar ve işlem paneli tamamen kaybolmak yerine,
+ * header'daki iki yeni buton (☰ Piyasa / işlem ikonu) ile açılıp kapanan
+ * kayar (drawer) panellere dönüşüyor; grafik alanı her zaman erişilebilir
+ * kalıyor. Grid sütunlarının "1fr" ortadaki grafik alanı, içeriğin doğal
+ * min-content genişliğinden dolayı sayfayı yatay taşırmaması için ilgili
+ * panellere min-width:0 eklendi (klasik CSS grid/flex shrink sorunu). */
+.sidebar-panel,
+.main-content-panel,
+.competition-panel.trading-panel {
+    min-width: 0;
+}
+
+.dashboard-header {
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.dashboard-header::-webkit-scrollbar {
+    display: none;
+}
+
+.tv-resolution-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Sadece dar-ekran modunda görünen sidebar/işlem paneli açma-kapama
+ * butonları ve arka karartma katmanı — normal (geniş) ekranda gizli. */
+.mobile-drawer-toggle {
+    display: none;
+}
+
+.btn-icon {
+    padding: 8px;
+    width: 34px;
+    height: 34px;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.mobile-drawer-backdrop {
+    display: none;
+}
+
+.mobile-drawer-close {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--gold-border);
+    color: var(--gold);
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+.mobile-drawer-close:hover {
+    background-color: var(--gold-dim);
+}
+
+@media (max-width: 1300px) {
+    .dashboard-body {
+        grid-template-columns: 260px 1fr 300px;
+    }
+}
+
+/* Orta genişlik: sidebar + işlem paneli hâlâ sabit sütun olarak yan yana
+ * duruyor ama daha dar; grafik alanı min-width:0 sayesinde küçülebiliyor. */
+@media (max-width: 1180px) {
+    .dashboard-body {
+        grid-template-columns: 240px 1fr 280px;
+    }
+}
+
+/* Dar ekran / tablet ve altı: sidebar ve işlem paneli artık sabit sütun
+ * değil, header'dan açılıp kapanan kayar (off-canvas) panellere dönüşüyor.
+ * Grafik alanı tüm genişliği kaplıyor. */
+@media (max-width: 980px) {
+    .dashboard-body {
+        grid-template-columns: 1fr;
+    }
+
+    .mobile-drawer-toggle {
+        display: inline-flex;
+    }
+
+    /* top:64px (header yüksekliğiyle birebir, .dashboard-container'ın
+     * grid-template-rows'undaki ilk değer) böylece açık drawer header'ın
+     * ALTINDAN başlıyor — header'ı kaplayıp içindeki diğer drawer butonunu
+     * tıklanamaz hale getirmiyor (bulunup düzeltilen gerçek bir hata: ilk
+     * denemede top:0 kullanılmıştı, bu da sidebar açıkken "İşlem Paneli"
+     * butonunun arkasında kalıp tıklanamamasına yol açıyordu). */
+    .sidebar-panel,
+    .competition-panel.trading-panel {
+        position: fixed;
+        top: 64px;
+        bottom: 0;
+        z-index: 200;
+        width: min(320px, 86vw);
+        max-height: none;
+        transition: transform 0.25s ease;
+        box-shadow: 0 0 28px rgba(0, 0, 0, 0.45);
+    }
+
+    .sidebar-panel {
+        left: 0;
+        grid-column: 1;
+        grid-row: auto;
+        transform: translateX(-100%);
+    }
+
+    .competition-panel.trading-panel {
+        right: 0;
+        grid-column: 1;
+        transform: translateX(100%);
+    }
+
+    .sidebar-panel.drawer-open,
+    .competition-panel.trading-panel.drawer-open {
+        transform: translateX(0);
+    }
+
+    .mobile-drawer-backdrop.visible {
+        display: block;
+        position: fixed;
+        top: 64px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 190;
+    }
+
+    /* Drawer modundayken kapatma (X) butonu görünür oluyor — arka planın
+     * dar bir kesimine dokunmaya güvenmek yerine net bir kapatma yolu. */
+    .sidebar-panel .mobile-drawer-close,
+    .competition-panel.trading-panel .mobile-drawer-close {
+        display: flex;
+    }
+
+    .sidebar-panel .panel-header,
+    .competition-panel.trading-panel .panel-header {
+        justify-content: flex-start;
+        gap: 10px;
+    }
+
+    .main-content-panel {
+        grid-column: 1;
+    }
+}
+
+@media (max-width: 640px) {
+    .dashboard-header {
+        padding: 0 10px;
+    }
+
+    .logo-area {
+        gap: 6px;
+    }
+
+    .logo-area h1 {
+        font-size: 13px;
+        letter-spacing: 0.5px;
+    }
+
+    /* (22 Temmuz 2026, on ikinci oturum — madde 7) Yeni profil simgesi
+       logo-area'ya ikinci bir ikon buton olarak eklendiğinde, dar ekranda
+       (bkz. az önceki header taşması düzeltmesi) yer açmak için hem bu
+       butonlar hem de yanındaki mobil "Piyasa Paneli" hamburgerı biraz
+       küçültülüyor — .btn-icon'un GENEL (uygulama genelindeki diğer ikon
+       butonları etkileyecek) tanımına dokunulmadan, yalnızca logo-area
+       kapsamında. */
+    .logo-area .btn-icon {
+        width: 28px;
+        height: 28px;
+        padding: 6px;
+    }
+
+    .header-status {
+        gap: 10px;
+    }
+
+    .header-actions {
+        gap: 5px;
+    }
+
+    /* Metinli header butonları ikon-only'e düşüyor, yer kazanılıyor —
+     * fonksiyonellik title="" tooltip'i ile korunuyor. Hamburger menü
+     * dropdown'ı bu daraltmanın DIŞINDA tutuluyor (aşağıdaki kural) —
+     * dikey liste içinde ikon-only satırlar okunaksız olurdu. */
+    .header-actions .btn .btn-label {
+        display: none;
+    }
+
+    .header-actions .btn {
+        padding: 8px;
+    }
+
+    .header-menu-dropdown .btn .btn-label {
+        display: inline;
+    }
+
+    .header-menu-dropdown .btn {
+        padding: 8px 10px;
+    }
+
+    .text-hide-mobile {
+        display: none !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .sidebar-panel,
+    .competition-panel.trading-panel {
+        width: 92vw;
+    }
+}
+
+/* (22 Temmuz 2026, on ikinci oturum, ikinci tur — kullanıcı isteği üzerine
+   önceden not edilip bırakılan bağımsız hata şimdi düzeltildi) Bu blok
+   önceden "@media (max-width: 420px)" idi. Ama header'ın gerçek genişlik
+   ihtiyacı (logo-area + header-actions, ikisi de flex-shrink:0) yalnızca
+   ~502px altında aşmaya başlıyor — yani 421-501px arası (ör. tam 480px)
+   HİÇBİR daraltma kuralı uygulanmadan kalıyordu ve header ~22-77px taşıyordu.
+   Ölçüm: 425px'te 77px, 480px'te 22px, 500px'te 2px, 505px'te 0px taşma
+   (bkz. /tmp/test_480_range.js). Eşik 520px'e çekilerek bu boşluk tamamen
+   kapatıldı — sidebar/competition-panel'in 92vw genişlik kuralı ayrı,
+   dokunulmamış bir bloğa taşındı (yukarıda, hâlâ sadece ≤420px'te), çünkü o
+   kuralın bu genişlik değişikliğiyle ilgisi yok ve mevcut davranışını
+   koruması gerekiyordu. */
+@media (max-width: 520px) {
+    .header-balance-label {
+        display: none;
+    }
+
+    /* (19 Temmuz 2026, on birinci oturum) .header-status (Engine/Latency)
+       zaten "Market Time"/"Market" öğelerini .text-hide-mobile ile 640px'te
+       gizliyordu ama Engine + Latency kaldığı için dar genişlikte
+       .logo-area + .header-actions tek başına viewport'u aşıyor,
+       .header-status'a hiç yer kalmayınca da flex-shrink onu neredeyse 0
+       genişliğe sıkıştırıp bozuk görünmesine yol açıyordu. Bu iki öğe de
+       sadece tanı amaçlı (demo motorunun canlı olduğunu gösteren dekoratif
+       bilgi) — dar ekranda tamamen gizlemek, gerçek işlevsellikten (alım/
+       satım, bakiye, tema, menü) hiçbir şey kaybettirmeden header'ı
+       sığdırıyor. */
+    .header-status {
+        display: none;
+    }
+
+    /* Header'daki geri kalan öğeler (logo, drawer düğmeleri, bakiye, sessize
+       al, tema, ☰ menü) hepsi gerçek işlevsel kontroller — hiçbiri
+       gizlenemez. Bunun yerine her biri biraz daha kompakt hale getirilip
+       toplam genişlik bu aralıktaki bir telefonda taşmaya en yakın hale
+       getiriliyor (kalan küçük bir taşma varsa zaten .dashboard-header'ın
+       mevcut overflow-x:auto'su — bkz. yukarıdaki "Responsive Adjustments"
+       bölümü — yatay kaydırmayla telafi ediyor). */
+    .pulse-indicator {
+        display: none;
+    }
+
+    .logo-area h1 {
+        font-size: 13px;
+    }
+
+    .header-balance-pill {
+        padding: 5px 8px;
+        gap: 4px;
+    }
+
+    .header-balance-value {
+        font-size: 12px;
+    }
+
+    .btn-icon {
+        width: 30px;
+        height: 30px;
+    }
+
+    .dashboard-header {
+        padding: 0 6px;
+    }
+
+    .logo-area {
+        gap: 5px;
+    }
+
+    .header-actions {
+        gap: 3px;
+    }
+}
+
+/* (22 Temmuz 2026, on ikinci oturum) 421-549px arası dar telefon/phablet
+   aralığında da (bu proje kapsamındaki test genişliği olan 390px'in dışında
+   ama yine de dar) profil simgesini gizli tutuyoruz — ölçüm yapılıp bu
+   aralığın (özellikle ~480-549px) yeni ikonla taşmaya başladığı görüldü;
+   550px ve üzerinde header zaten taşmadan sığıyor. */
+@media (max-width: 549px) {
+    .profile-panel-wrap {
+        display: none;
+    }
+}
+
+/* --- Competition Panel (Right Sidebar) --- */
+.competition-panel {
+    grid-column: 3;
+    background-color: var(--bg-sidebar);
+    border-left: 1px solid var(--gold-border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.performance-bars-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 10px;
+}
+
+.performance-bar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bar-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-family: var(--font-mono);
+}
+
+.bar-name {
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-weight: 600;
+}
+
+.bar-value {
+    font-weight: 700;
+}
+
+.bar-track {
+    width: 100%;
+    height: 8px;
+    background-color: var(--bg-card);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--tint-05);
+}
+
+.bar-fill-comp {
+    height: 100%;
+    width: 0%;
+    border-radius: 4px;
+    transition: width 0.8s cubic-bezier(0.1, 0.8, 0.25, 1);
+}
+
+/* Color codes for engine bars */
+.bar-opti {
+    background: linear-gradient(90deg, var(--gold-dark), var(--gold));
+    box-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
+}
+
+.bar-backtrader {
+    background: linear-gradient(90deg, #1E88E5, #42A5F5);
+    box-shadow: 0 0 8px rgba(30, 136, 229, 0.3);
+}
+
+.bar-custom {
+    background: linear-gradient(90deg, #43A047, #66BB6A);
+    box-shadow: 0 0 8px rgba(67, 160, 71, 0.3);
+}
+
+/* Not: bu bölümde önceden "@media (max-width:1200px) { .competition-panel
+ * { display:none !important; } }" kuralı vardı — trading terminaline
+ * dönüşümden önceki backtest dashboard döneminden kalma. O zamanki
+ * ".competition-panel" sadece dekoratif bir "motor yarışı" istatistik
+ * paneliydi, kaybolması sorun değildi. Şimdi aynı DOM elemanı gerçek
+ * "İşlem Paneli"ni (alım/satım ticket'ı, pozisyonlar, emirler) taşıyor —
+ * bu yüzden bu kural kaldırıldı; dar ekran davranışı artık yukarıdaki
+ * "Responsive Adjustments" bölümündeki kayar (drawer) panel kurallarıyla
+ * yönetiliyor, panel kaybolmuyor, header'daki butonla açılıp kapanıyor. */
+
+/* ==========================================================================
+   TRADING SYSTEM ADD-ONS
+   Market watchlist, indicators, TradingView-style chart + drawing tools,
+   quick trade ticket. Reuses the core design tokens above.
+   ========================================================================== */
+
+/* --- Borsa Etiketi ---
+ * (30 Ağustos 2026 — NASDAQ/NYSE kaldırıldı, sadece BIST100 kaldığı için
+ * artık tıklanabilir bir "seçici" değil, sabit bir etiket. Eski
+ * .exchange-btn.active ile aynı altın vurgusunu koruyor ki görsel dil
+ * ansızın değişmesin. */
+.exchange-static-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--gold-dim);
+    border: 1px solid var(--gold);
+    border-radius: var(--radius-sm);
+    color: var(--gold);
+    padding: 7px 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+/* --- Kaldıraç (Leverage) Seçici ---
+ * .exchange-selector ile aynı görsel dilde ama kaldıraç arttıkça (2x → 10x)
+ * rengi turuncuya/kırmızıya kayarak risk arttığını görsel olarak da
+ * hissettiriyor — sadece "1x" nötr altın/gri kalıyor. */
+.leverage-selector {
+    display: flex;
+    gap: 6px;
+}
+
+.leverage-btn {
+    flex: 1;
+    background-color: var(--bg-input);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    padding: 7px 0;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    font-family: var(--font-mono);
+    transition: var(--transition-fast);
+}
+
+.leverage-btn:hover {
+    border-color: var(--gold);
+    color: var(--text-primary);
+}
+
+.leverage-btn.active {
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.leverage-btn.active[data-leverage="5"] {
+    background-color: rgba(255, 152, 0, 0.15);
+    border-color: #FF9800;
+    color: #FF9800;
+}
+
+.leverage-btn.active[data-leverage="10"] {
+    background-color: rgba(244, 67, 54, 0.15);
+    border-color: #F44336;
+    color: #F44336;
+}
+
+.leverage-warning-hint {
+    color: #FF9800;
+    font-size: 9.5px;
+    text-transform: none;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+/* (18 Temmuz 2026, onuncu oturum) Manuel/özel kaldıraç girişi — hazır 1/2/5/10x
+   butonlarının yanında serbest bir değer (1-20x) girilebilir. */
+.leverage-custom-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.leverage-custom-row label {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.leverage-custom-input {
+    width: 64px;
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    font-size: 12px;
+    text-align: right;
+}
+
+.leverage-custom-suffix {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: auto;
+}
+
+/* (18 Temmuz 2026, onuncu oturum, ikinci tur) Manuel kaldıraç hızlı-seçim
+   chip'leri — 3x/7x/15x/20x, tek tıkla uygulanır. */
+.leverage-quick-chip-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.leverage-quick-chip {
+    flex: 1;
+    background: transparent;
+    border: 1px dashed var(--tint-14);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    padding: 4px 0;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    transition: var(--transition-fast);
+}
+
+.leverage-quick-chip:hover {
+    border-color: var(--gold);
+    border-style: solid;
+    color: var(--text-primary);
+}
+
+.leverage-quick-chip.active {
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+    border-style: solid;
+    color: var(--gold);
+}
+
+.oco-hint {
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: 8px;
+}
+
+.btn-cancel-oco {
+    background: transparent;
+    border: 1px solid var(--tint-14);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-cancel-oco:hover {
+    border-color: #F44336;
+    color: #F44336;
+}
+
+.pos-leverage-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 5px;
+    background-color: var(--gold-dim);
+    color: var(--gold);
+    vertical-align: middle;
+}
+
+/* --- Watchlist ---
+ * Now that the Geriye Dönük Test Ayarları panel below it is gone, the
+ * watchlist is the sidebar's only remaining content below the search box —
+ * it flex-grows to fill all remaining sidebar height instead of stopping at
+ * a fixed 260px, with its own internal scroll once the list outgrows that. */
+.watchlist-form-group {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    margin-bottom: 0;
+}
+
+/* (2 Ağustos 2026 — revize planı madde 9) İzleme listesinden bir sembol
+   kaldırıldığında birkaç saniyeliğine görünen "Geri Al" bildirimi. */
+.watchlist-undo-toast {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gold-border);
+    background-color: rgba(212, 175, 55, 0.08);
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.watchlist-undo-toast #btn-watchlist-undo {
+    flex-shrink: 0;
+    cursor: pointer;
+    background: none;
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+}
+
+.watchlist-undo-toast #btn-watchlist-undo:hover {
+    background-color: rgba(212, 175, 55, 0.15);
+}
+
+.watchlist-container {
+    flex: 1 1 auto;
+    min-height: 160px;
+    max-height: none;
+    overflow-y: auto;
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-input);
+}
+
+.watchlist-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--tint-025);
+    transition: var(--transition-fast);
+}
+
+.watchlist-row:last-child {
+    border-bottom: none;
+}
+
+.watchlist-row:hover {
+    background-color: rgba(212, 175, 55, 0.05);
+}
+
+.watchlist-row.active {
+    background-color: var(--gold-dim);
+    box-shadow: inset 2px 0 0 var(--gold);
+}
+
+/* (22 Temmuz 2026, on ikinci oturum, altıncı tur — "hisse logoları"
+   özelliği) Logo + sembol/isim yığınını yan yana tutan sarmalayıcı;
+   .watchlist-row'un ilk (sol) çocuğu artık bu, .wl-main değil. */
+.wl-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.wl-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+/* Şirket logosu (Logo.dev) + bulunamazsa/yüklenemezse renkli baş harf
+   rozeti — watchlist satırında, grafik sembol başlığında ve ısı
+   haritasında ortak kullanılıyor (bkz. dataController.js buildLogoHtml). */
+.stock-logo-wrap {
+    display: inline-flex;
+    flex-shrink: 0;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.stock-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #ffffff;
+    border-radius: 5px;
+}
+
+.stock-logo-fallback {
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 9px;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    letter-spacing: -0.02em;
+}
+
+.wl-symbol {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+.wl-name {
+    font-size: 9px;
+    color: var(--text-muted);
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
+/* (17-18 Temmuz 2026, sekizinci oturum) Watchlist mini-sparkline — her
+   satırda son ~2 dakikalık fiyat yönünü tek bakışta gösteren küçük bir
+   çizgi grafik. Sembol adı ile fiyat sütunu arasında, satırın orta
+   sütununda duruyor (bkz. .watchlist-row'un justify-content:space-between
+   davranışı — üç çocuk öğeyi otomatik olarak baştan/ortadan/sondan
+   dağıtıyor, ek bir flex ayarı gerekmiyor). */
+.wl-spark-wrap {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    opacity: 0.85;
+}
+
+.wl-spark {
+    display: block;
+    width: 46px;
+    height: 18px;
+}
+
+/* (23 Temmuz 2026 düzeltmesi — izleme listesi ekle/çıkar özelliği)
+   .wl-price-col'u ve varsa yanındaki ekle/çıkar aksiyonunu (× kaldır
+   düğmesi ya da "zaten listede" rozeti) yan yana tutan sarmalayıcı; bu
+   sayede satırın üst düzey flex çocuğu sayısı (space-between ile
+   dağıtılan) 3'te sabit kalıyor — wl-left / wl-spark-wrap / wl-right. */
+.wl-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+
+.wl-price-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+}
+
+.wl-remove-btn {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    line-height: 16px;
+    text-align: center;
+    border: 1px solid var(--tint-025);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0;
+    opacity: 0.55;
+    transition: var(--transition-fast);
+}
+
+.watchlist-row:hover .wl-remove-btn {
+    opacity: 1;
+}
+
+.wl-remove-btn:hover {
+    background-color: rgba(198, 40, 40, 0.16);
+    border-color: rgba(198, 40, 40, 0.45);
+    color: #E57373;
+}
+
+.wl-inlist-badge {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: var(--gold);
+    opacity: 0.8;
+}
+
+.watchlist-empty {
+    padding: 18px 14px;
+    text-align: center;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.wl-price {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.wl-change {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+}
+
+/* (18 Temmuz 2026, dördüncü tur, Madde 5e — "Kompakt Görünüm" seçeneği)
+   Hamburger menüdeki düğme <body>'ye .compact-mode class'ı ekleyip
+   localStorage'a yazıyor; JS tarafında watchlist satırlarının kendisi
+   yeniden render EDİLMİYOR — sadece bu class üzerinden CSS ile
+   sıkılaştırılıyor, böylece mevcut render/click mantığına dokunulmuyor. */
+body.compact-mode .watchlist-row {
+    padding: 2px 8px;
+}
+
+body.compact-mode .wl-symbol,
+body.compact-mode .wl-price {
+    font-size: 11px;
+}
+
+body.compact-mode .wl-name {
+    font-size: 8px;
+}
+
+body.compact-mode .wl-spark {
+    width: 34px;
+    height: 14px;
+}
+
+body.compact-mode .stock-logo-wrap {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+body.compact-mode .stock-logo-fallback {
+    font-size: 7px;
+}
+
+body.compact-mode .header-status {
+    gap: 12px;
+}
+
+body.compact-mode .status-item {
+    font-size: 11px;
+}
+
+/* --- Indicator subgroup label --- */
+.indicator-subgroup-label {
+    font-size: 10px;
+    color: var(--gold);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+/* ==========================================================================
+   TRADING CHART SECTION (TradingView Lightweight Charts)
+   ========================================================================== */
+
+.trading-chart-section {
+    flex: 1 1 58%;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+}
+
+.tv-toolbar {
+    display: flex;
+    align-items: center;
+    /* (17-18 Temmuz 2026, sekizinci oturum) 12px -> 8px, 14px -> 10px: bu
+       sıra art arda eklenen düğmelerle (grafik tipi menüsü, çizim araç
+       grupları, fiyat ölçeği, göstergeler/alarmlar) zamanla kalabalıklaştı;
+       ızgara düğmesi yukarıdaki sekme çubuğuna taşındıktan sonra bile
+       1600px gibi yaygın bir masaüstü genişliğinde gösterge chip'lerini
+       (#tv-overlay-legend) varsayılan görünümde kaydırmasız erişilemez
+       bırakıyordu — bkz. üçüncü oturumdaki aynı sınıf düzeltme. */
+    gap: 8px;
+    background-color: var(--bg-sidebar);
+    border-bottom: 1px solid var(--gold-border);
+    padding: 0 10px;
+    height: 48px;
+    flex-shrink: 0;
+    overflow-x: auto;
+}
+
+.tv-chart-tabs-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background-color: var(--bg-panel);
+    border-bottom: 1px solid var(--tint-06);
+    padding: 6px 10px;
+    flex-shrink: 0;
+}
+
+/* (17-18 Temmuz 2026, sekizinci oturum) Kaydırma artık bar'ın tamamında
+   değil, yalnızca sekme listesinde — böylece sağa yaslanan ızgara düğmesi
+   (bkz. .tv-tabsbar-append-btn) sekmeler taşsa/kaydırılsa bile sabit ve
+   her zaman görünür/tıklanabilir kalıyor. min-width:0, flex öğelerinin
+   varsayılan "içeriğe göre büzülmeme" davranışını geçersiz kılıp gerçek
+   kaydırmayı mümkün kılıyor. */
+.tv-chart-tabs-list {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+}
+
+/* Işzgara-görünümü düğmesini bu satırda sağa yaslar — sekmeler çubuğunda
+   normalde bolca boş alan var, bu yüzden düğme kaydırma gerekmeden hep
+   görünür/tıklanabilir kalıyor. */
+.tv-tabsbar-append-btn {
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+.tv-chart-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px 5px 12px;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-bottom: 2px solid transparent;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition-fast);
+}
+
+.tv-chart-tab:hover {
+    background-color: var(--tint-03);
+    color: var(--text-primary, #eaeaea);
+}
+
+.tv-chart-tab.active {
+    color: var(--gold-light);
+    background-color: var(--gold-dim);
+    border-color: var(--gold-border);
+    border-bottom-color: var(--gold);
+}
+
+.tv-chart-tab-close {
+    background: transparent;
+    border: none;
+    color: inherit;
+    opacity: 0.55;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    border-radius: 3px;
+}
+
+.tv-chart-tab-close:hover {
+    opacity: 1;
+    color: #F44336;
+}
+
+.tv-symbol-block {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* (22 Temmuz 2026, on ikinci oturum, altıncı tur — "hisse logoları")
+   .tv-symbol-block'un diğer çocukları `align-items:baseline` ile
+   hizalanıyor (metin tabanlı) — kare bir logo görseli bu hizalamada
+   metnin altına kayar gibi görünürdü, bu yüzden kendi hizalamasını
+   merkeze (dikey) sabitliyor. */
+#tv-symbol-logo {
+    align-self: center;
+    display: inline-flex;
+}
+
+.tv-symbol-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+}
+
+/* (30 Ağustos 2026 — "tam ekranda hisseler arası seçim" özelliği)
+ * Normal görünümde GİZLİ — sembol değiştirmenin zaten bir yolu var
+ * (izleme listesi). SADECE tam ekran modunda (kenar çubuğu gizlendiği
+ * için başka bir yol kalmıyor) görünür oluyor, bkz. aşağıdaki
+ * .tv-fullscreen-mode kuralı.
+ * (30 Ağustos 2026 — ikinci güncelleme, kullanıcı geri bildirimi: "okları
+ * kaldır") Önceden burada ‹/› (bir önceki/sonraki) butonları da vardı;
+ * arama kutulu ▾ seçici (aşağıda) onları gereksiz kıldığı için kaldırıldı
+ * — kalan tek buton bu ▾ sembol seçici tetikleyicisi. Sınıf adı geriye
+ * dönük uyumluluk için aynı bırakıldı. */
+.tv-symbol-nav-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background-color: var(--bg-input);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: var(--transition-fast);
+}
+
+.tv-symbol-nav-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background-color: var(--gold-dim);
+}
+
+.tv-fullscreen-mode .tv-symbol-nav-btn {
+    display: inline-flex;
+}
+
+/* (30 Ağustos 2026 — sembol seçici açılır listesi, ikinci düzeltme)
+ * İLK sürüm .qt-symbol-search-popover'ın position:absolute kuralını
+ * miras alıyordu — bu popover'ın konumlandığı .tv-symbol-block,
+ * overflow-x:auto (ki CSS kuralına göre bu overflow-y'yi de zımnen
+ * "auto" yapıyor) + sabit height:48px olan .tv-toolbar'ın İÇİNDE
+ * olduğundan, açılır liste görünmez şekilde KIRPILIYORDU (kullanıcı
+ * "liste hiç görünmüyor" diye bildirdi — ekran görüntüsünde sadece arama
+ * kutusu görünüyor, altındaki sonuç listesi yoktu). Çözüm: chart-type/
+ * header-menu dropdown'larıyla AYNI, kanıtlanmış desene geçildi —
+ * position:fixed + JS'te getBoundingClientRect() ile hesaplanan top/left
+ * (bkz. tradingChart.js setupSymbolPickerDropdown) — fixed konumlandırma
+ * hiçbir atadaki overflow tarafından kırpılmaz. */
+.tv-symbol-picker-popover {
+    display: none;
+    position: fixed;
+    z-index: 620;
+    width: 260px;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    padding: 8px;
+}
+
+.tv-symbol-picker-popover.open {
+    display: block;
+}
+
+/* (18 Temmuz 2026, dokuzuncu oturum — "canlı veri durumu için küçük görsel
+   gösterge") Sembol adının yanında, o an ekrandaki fiyatın backend'in
+   gerçek yfinance verisinden mi (yeşil, yanıp sönen nokta) yoksa yerel
+   simülasyondan mı (gri, sabit nokta) geldiğini bir bakışta gösteren küçük
+   bir işaret. Yeni bir "motor paneli" DEĞİL — sadece mevcut sembol
+   başlığının yanına eklenen minik bir durum noktası. */
+.live-data-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--text-muted);
+    opacity: 0.5;
+    flex-shrink: 0;
+    transition: background-color 0.3s ease;
+}
+
+.live-data-dot.is-live {
+    background-color: #2ECC71;
+    opacity: 1;
+    animation: live-dot-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes live-dot-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.55); }
+    50% { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0); }
+}
+
+.tv-last-price {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--gold);
+}
+
+.tv-price-change {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.tv-drawing-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding-left: 12px;
+    border-left: 1px solid var(--tint-06);
+    flex-shrink: 0;
+}
+
+.tv-tool-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.tv-tool-btn:hover {
+    color: var(--gold-light);
+    border-color: var(--gold-border);
+}
+
+.tv-tool-btn.active {
+    color: var(--gold);
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+}
+
+/* ── Chart type ("Çubuklar") dropdown ── */
+
+.tv-chart-type-menu {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.tv-charttype-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: transparent;
+    border: 1px solid var(--gold-border);
+    color: var(--text-secondary);
+    padding: 0 8px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    white-space: nowrap;
+}
+
+.tv-charttype-btn:hover {
+    color: var(--gold-light);
+    border-color: var(--gold);
+    background-color: var(--gold-dim);
+}
+
+.tv-charttype-caret {
+    opacity: 0.6;
+    margin-left: 2px;
+}
+
+.tv-charttype-dropdown {
+    display: none;
+    position: fixed;
+    z-index: 620;
+    min-width: 220px;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    padding: 6px;
+}
+
+.tv-charttype-dropdown.open {
+    display: block;
+}
+
+.tv-charttype-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.tv-charttype-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 7px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.tv-charttype-item:hover {
+    background-color: var(--tint-06);
+    color: var(--text-primary, #eaeaea);
+}
+
+.tv-charttype-item.active {
+    background-color: var(--gold-dim);
+    color: var(--gold-light);
+}
+
+.tv-charttype-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    flex-shrink: 0;
+    opacity: 0.85;
+}
+
+.tv-charttype-divider {
+    height: 1px;
+    background-color: var(--tint-06);
+    margin: 6px 2px;
+}
+
+.tv-charttype-volume-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.tv-charttype-volume-toggle input {
+    accent-color: var(--gold);
+}
+
+/* ── Drawing tools: grouped flyout menus ── */
+
+.tv-tool-group {
+    position: relative;
+    display: inline-flex;
+}
+
+.tv-tool-group-btn {
+    position: relative;
+    padding-right: 4px;
+}
+
+.tv-tool-caret {
+    position: absolute;
+    right: 1px;
+    bottom: 1px;
+    display: flex;
+    opacity: 0.65;
+}
+
+.tv-tool-flyout {
+    display: none;
+    position: fixed;
+    z-index: 615;
+    min-width: 190px;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    padding: 5px;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.tv-tool-flyout.open {
+    display: flex;
+}
+
+.tv-tool-flyout-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 11.5px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition-fast);
+}
+
+.tv-tool-flyout-item:hover {
+    background-color: var(--tint-06);
+    color: var(--text-primary, #eaeaea);
+}
+
+.tv-tool-flyout-item.active {
+    background-color: var(--gold-dim);
+    color: var(--gold-light);
+}
+
+/* ── "Göstergeler" rail flyout'u (dördüncü tur, Madde 3) ──
+   Diğer flyout'lardan (en fazla 8 öğe) daha uzun bir liste taşıyor (~25
+   gösterge), bu yüzden kaydırılabilir + biraz daha geniş. */
+.tv-indicator-flyout {
+    min-width: 220px;
+    max-height: 380px;
+    overflow-y: auto;
+}
+
+.tv-indicator-flyout-label {
+    font-size: 10px;
+    color: var(--gold);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 6px 8px 4px;
+}
+
+.tv-indicator-flyout-label:first-child {
+    padding-top: 2px;
+}
+
+.tv-indicator-flyout-check {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    border: 1px solid var(--tint-14);
+    flex-shrink: 0;
+    position: relative;
+}
+
+.tv-indicator-flyout-item.active .tv-indicator-flyout-check {
+    background-color: var(--gold);
+    border-color: var(--gold);
+}
+
+.tv-indicator-flyout-item.active .tv-indicator-flyout-check::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--text-dark, #1a1a1a);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.tv-indicator-flyout-more {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 11px;
+}
+
+.tv-tool-flyout-divider {
+    height: 1px;
+    background-color: var(--tint-06);
+    margin: 5px 2px;
+}
+
+.tv-toolbar-sep {
+    width: 1px;
+    height: 20px;
+    background-color: var(--tint-06);
+    margin: 0 4px;
+    flex-shrink: 0;
+}
+
+.tv-tool-toggle.active {
+    color: var(--gold);
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+}
+
+.tv-indicators-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: 1px solid var(--gold-border);
+    color: var(--text-secondary);
+    padding: 0 6px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-left: 2px;
+    transition: var(--transition-fast);
+}
+
+.tv-indicators-btn:hover {
+    color: var(--gold-light);
+    border-color: var(--gold);
+    background-color: var(--gold-dim);
+}
+
+.tv-indicators-btn {
+    position: relative;
+}
+
+.alert-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background-color: #F44336;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+@keyframes alertFlashPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.55); border-color: var(--gold-border); }
+    50% { box-shadow: 0 0 0 5px rgba(244, 67, 54, 0); border-color: #F44336; }
+}
+
+.tv-indicators-btn.alert-flash {
+    animation: alertFlashPulse 0.8s ease-out 2;
+}
+
+.tv-scale-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--gold-border);
+    color: var(--text-secondary);
+    width: 32px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: var(--transition-fast);
+}
+
+.tv-scale-toggle-btn:hover {
+    color: var(--gold-light);
+    border-color: var(--gold);
+    background-color: var(--gold-dim);
+}
+
+.tv-scale-toggle-btn.active {
+    color: var(--gold);
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+}
+
+.tv-overlay-legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex: 1 1 auto;
+    /* Never fully collapse: with a wider toolbar (chart-type menu + grouped
+       drawing tools) there isn't always room to give this its preferred
+       width, but letting it hit 0 makes its own chips unreachable — they'd
+       sit past the *outer* toolbar's scroll edge, behind the sidebar,
+       instead of being reachable via this element's own internal scroll. */
+    min-width: 56px;
+    scrollbar-width: none;
+}
+
+.tv-overlay-legend::-webkit-scrollbar { display: none; }
+
+.tv-indicator-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background-color: var(--tint-04);
+    border: 1px solid var(--tint-08);
+    border-radius: 12px;
+    padding: 3px 8px 3px 8px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.tv-indicator-chip:hover {
+    border-color: rgba(244, 67, 54, 0.5);
+    color: #F44336;
+}
+
+.tv-chip-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.tv-chip-remove {
+    font-size: 12px;
+    opacity: 0.55;
+    margin-left: 1px;
+}
+
+.tv-indicator-chip:hover .tv-chip-remove {
+    opacity: 1;
+}
+
+/* ────────── Indicator Picker Modal ────────── */
+
+.indicator-modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 800;
+    background-color: rgba(0, 0, 0, 0.55);
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 90px;
+}
+
+.indicator-modal-backdrop.open {
+    display: flex;
+}
+
+.indicator-modal {
+    width: 420px;
+    max-width: calc(100vw - 40px);
+    max-height: 78vh;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md, 8px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.indicator-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--tint-06);
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text-primary, #eaeaea);
+    background-color: var(--bg-sidebar);
+}
+
+.indicator-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+}
+
+.indicator-modal-close:hover {
+    color: #F44336;
+    background-color: rgba(244, 67, 54, 0.1);
+}
+
+.indicator-modal-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--tint-06);
+    color: var(--text-muted);
+}
+
+.indicator-modal-search input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary, #eaeaea);
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.indicator-modal-body {
+    overflow-y: auto;
+    padding: 14px 16px 18px;
+}
+
+/* Komut Paleti (18 Temmuz 2026, dördüncü tur) — .indicator-modal-backdrop/
+   .indicator-modal ile aynı taban desen, sadece iç düzeni farklı: üstte tek
+   satır arama kutusu + kapat butonu, altında kaydırılabilir sonuç listesi. */
+.command-palette-modal {
+    width: 520px;
+    max-height: 62vh;
+}
+
+.cmdp-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--tint-06);
+    background-color: var(--bg-sidebar);
+    flex-shrink: 0;
+}
+
+.cmdp-search-icon {
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.cmdp-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary, #eaeaea);
+    font-size: 15px;
+    font-family: inherit;
+}
+
+.cmdp-input::placeholder {
+    color: var(--text-muted);
+}
+
+.cmdp-results {
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.cmdp-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 8px 10px 4px;
+}
+
+.cmdp-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--text-primary, #eaeaea);
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    transition: var(--transition-fast);
+}
+
+.cmdp-item.active,
+.cmdp-item:hover {
+    background-color: var(--tint-08);
+}
+
+.cmdp-item-icon {
+    flex-shrink: 0;
+    width: var(--icon-size-lg);
+    height: var(--icon-size-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gold);
+    opacity: 0.85;
+}
+
+.cmdp-item-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+}
+
+.cmdp-item-label {
+    font-weight: 600;
+    color: var(--text-primary, #eaeaea);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cmdp-item-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cmdp-item-hint {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--text-muted);
+    border: 1px solid var(--tint-08);
+    border-radius: var(--radius-sm);
+    padding: 2px 6px;
+}
+
+.cmdp-empty {
+    padding: 24px 10px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.indicator-modal-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.btn-chip-action {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--gold-border);
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 7px 0;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-chip-action:hover:not(:disabled) {
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+}
+
+.btn-chip-action:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.indicator-modal-category {
+    margin-bottom: 8px;
+}
+
+/* Yardım/Hakkında modalının düz metin paragrafları (18 Temmuz 2026,
+   dokuzuncu oturum). */
+.help-text {
+    margin: 4px 0 0 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.help-text strong {
+    color: var(--text-primary);
+}
+
+.help-text kbd {
+    background-color: var(--tint-06);
+    border: 1px solid var(--tint-12);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.indicator-oscillator-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.indicator-osc-item {
+    background-color: var(--tint-03);
+    border: 1px solid var(--tint-08);
+    color: var(--text-secondary);
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.indicator-osc-item:hover {
+    border-color: var(--gold-border);
+    color: var(--gold-light);
+}
+
+.indicator-osc-item.active {
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.indicator-modal-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 24px 0;
+}
+
+/* ────────── Price Alerts modal ────────── */
+
+.alert-form-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: stretch;
+    margin-bottom: 8px;
+}
+
+.alert-symbol-select {
+    flex: 1.4;
+    min-width: 110px;
+}
+
+.alert-condition-select {
+    flex: 1.3;
+    min-width: 120px;
+}
+
+.alert-target-input {
+    flex: 1;
+    min-width: 90px;
+}
+
+.alert-form-row .form-input {
+    height: 32px;
+    font-size: 11px;
+    padding: 0 8px;
+    border-radius: var(--radius-sm);
+}
+
+/* (29 Temmuz 2026 — Madde 20) Gösterge alarmı, aktif grafik sembolüne
+   bağlı olduğu için (serbest sembol seçimi yok) bir <select> yerine sade
+   bir metin rozeti gösteriliyor. */
+.ind-alert-active-symbol {
+    flex: 1.4;
+    min-width: 110px;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    padding: 0 8px;
+}
+
+.alert-add-btn {
+    flex: 0 0 auto;
+    padding: 0 14px;
+    height: 32px;
+}
+
+.alert-notif-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    margin-top: 4px;
+}
+
+/* (29 Temmuz 2026 — Madde 12) Küçük, tıklanabilir/odaklanabilir bilgi
+   ikonu — native title tooltip'i tetikler, ek JS/state gerektirmez. */
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--bg-tertiary, rgba(255,255,255,0.08));
+    color: var(--text-secondary);
+    font-size: 10px;
+    line-height: 1;
+    cursor: help;
+    flex-shrink: 0;
+}
+
+.info-icon:hover,
+.info-icon:focus-visible {
+    color: var(--gold);
+    background: var(--gold-dim);
+}
+
+.alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.alerts-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 14px 0;
+}
+
+.alert-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--tint-03);
+    border: 1px solid var(--tint-06);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+}
+
+.alert-item.triggered {
+    opacity: 0.6;
+}
+
+.alert-item-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+}
+
+.alert-item-symbol {
+    font-weight: 700;
+    color: var(--text-primary, #eaeaea);
+}
+
+.alert-item-cond {
+    color: var(--text-secondary);
+}
+
+.alert-item-status {
+    font-size: 10px;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: rgba(76, 175, 80, 0.12);
+    color: #4CAF50;
+}
+
+.alert-item.triggered .alert-item-status {
+    background-color: var(--tint-08);
+    color: var(--text-muted);
+}
+
+.alert-delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: var(--transition-fast);
+}
+
+.alert-delete-btn:hover {
+    color: #F44336;
+    background-color: rgba(244, 67, 54, 0.1);
+}
+
+/* ────────── Stop-Loss / Take-Profit ──────────
+   (üçüncü tur, 18 Temmuz 2026) Yeniden düzenlendi: fiyat alanları artık
+   kendi satırında (.qt-sltp-fields-row), trailing-stop alt-bloğu
+   (.qt-trailing-block) ayrı bir satırda — hepsi tutarlı bir kart görünümü
+   veren .qt-sltp-box içinde, ince bir üst-ayraç ile birbirinden ayrılıyor. */
+
+.qt-sltp-box {
+    display: none;               /* JS toggles to 'flex' */
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 10px;
+    background-color: var(--tint-03);
+    border: 1px solid var(--tint-06);
+    border-radius: var(--radius-sm);
+}
+
+.qt-sltp-fields-row {
+    display: flex;
+    gap: 8px;
+}
+
+.qt-sltp-field {
+    flex: 1;
+}
+
+.qt-sltp-field label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.qt-trailing-block {
+    padding-top: 8px;
+    border-top: 1px solid var(--tint-06);
+}
+
+/* OCO Tetikleyicileri kartı (18 Temmuz 2026, onuncu oturum, beşinci tur) —
+   .qt-sltp-box ile aynı görsel dil: hafif dolgulu kart, alanlar HER ZAMAN
+   dikey/tam genişlik (uzun etiketler — "Üst Tetik — Kırılım AL (₺)" — bir
+   yan-yana ızgarada sıkışıp kelime kelime bölünürdü, bu yüzden SL/TP
+   kutusundaki iki-sütunlu satırdan bilinçli olarak farklı, tek sütun). */
+.qt-oco-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 10px;
+    background-color: var(--tint-03);
+    border: 1px solid var(--tint-06);
+    border-radius: var(--radius-sm);
+}
+
+.qt-oco-field {
+    flex: none;
+    width: 100%;
+}
+
+.qt-oco-box .oco-hint {
+    margin-top: 0;
+}
+
+.qt-trailing-field {
+    margin-top: 8px;
+}
+
+/* ────────── Risk bazlı pozisyon büyüklüğü hesaplayıcı ──────────
+ * (26 Temmuz 2026, on üçüncü oturum devamı) .qt-trailing-block ile aynı
+ * görsel dil (üst-ayraçlı alt-blok) — SL/TP kutusunun içinde, Stop-Loss
+ * fiyatının hemen altında yaşıyor çünkü hesaplama ona bağımlı. */
+.qt-risk-calc {
+    padding-top: 8px;
+    border-top: 1px solid var(--tint-06);
+}
+
+.qt-risk-box {
+    margin-top: 8px;
+}
+
+.qt-risk-hint {
+    margin: 6px 0 0 0;
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.qt-risk-hint.qt-risk-hint-ok {
+    color: var(--gold);
+    font-weight: 600;
+}
+
+/* (29 Temmuz 2026 — Madde 19 "SL/TP girilince otomatik risk % ön hesabı") */
+.qt-risk-preview {
+    margin: 8px 0 0 0;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    background: rgba(212, 175, 55, 0.08);
+    color: var(--text-primary);
+}
+
+.qt-risk-preview.qt-risk-preview-warn {
+    background: rgba(198, 40, 40, 0.12);
+    color: var(--danger);
+}
+
+/* (29 Temmuz 2026 — "ATR bazlı akıllı Stop-Loss önerisi") bkz.
+   tradingEngine.js suggestAtrStopLoss(). */
+.qt-atr-suggest-btn {
+    margin-top: 8px;
+    width: 100%;
+    background: transparent;
+    border: 1px dashed var(--gold-border);
+    border-radius: var(--radius-sm);
+    color: var(--gold);
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 6px 8px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.qt-atr-suggest-btn:hover {
+    background-color: var(--gold-dim);
+    border-style: solid;
+}
+
+.qt-atr-suggest-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ────────── Portföy genel risk uyarısı ──────────
+ * (26 Temmuz 2026, on üçüncü oturum devamı) Tüm açık pozisyonlardaki
+ * tanımlı risk toplamı özkaynağın belirli bir yüzdesini aşınca görünür —
+ * bkz. tradingEngine.js renderPortfolioRiskWarning(). .qt-ticket-alert ile
+ * aynı kart dili ama kasıtlı olarak AYRI bir renk (amber/kehribar) —
+ * "emir reddedildi" (kırmızı) ya da "bilgi notu" (altın) ile karışmasın,
+ * kendi başına bir risk-yönetimi sinyali olarak tanınsın diye. */
+.qt-portfolio-risk-warning {
+    margin: 0 0 16px 0;
+    padding: 9px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.5;
+    background-color: rgba(255, 193, 7, 0.12);
+    border: 1px solid rgba(255, 193, 7, 0.4);
+    color: #FFC107;
+}
+
+/* (6 Ağustos 2026 — emir onay penceresi, Ali İhsan Hocam'ın isteği) */
+.order-confirm-question {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin: 0 0 10px 0;
+}
+
+.order-confirm-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background-color: var(--tint-03);
+    border: 1px solid var(--tint-06);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 11.5px;
+}
+
+.order-confirm-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    line-height: 1.5;
+}
+
+.order-confirm-row-label {
+    color: var(--text-secondary);
+}
+
+.order-confirm-row-value {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-family: 'Fira Code', monospace;
+    text-align: right;
+}
+
+.order-confirm-row-value.order-confirm-buy { color: var(--success); }
+.order-confirm-row-value.order-confirm-sell { color: var(--danger); }
+
+.order-confirm-note {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-top: 2px;
+}
+
+.btn-order-confirm-submit {
+    background-color: var(--success);
+    color: #0B0D10;
+    border-color: var(--success);
+}
+.btn-order-confirm-submit.order-confirm-sell-btn {
+    background-color: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+
+.sltp-modal-info {
+    font-size: 11px;
+    color: var(--text-secondary);
+    background-color: var(--tint-03);
+    border: 1px solid var(--tint-06);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    line-height: 1.6;
+}
+
+.pos-sltp-sub {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-top: 2px;
+    white-space: nowrap;
+}
+
+.pos-actions-cell {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+}
+
+.btn-sltp-edit {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background-color: var(--tint-05);
+    border: 1px solid var(--gold-border);
+    color: var(--gold);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-sltp-edit:hover {
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+}
+
+.btn-sltp-edit.has-sltp {
+    background-color: rgba(255, 193, 7, 0.12);
+    border-color: rgba(255, 193, 7, 0.5);
+    color: #FFC107;
+}
+
+/* ────────── BIST100 Heatmap ────────── */
+
+.heatmap-modal {
+    width: min(1180px, 94vw);
+    max-height: 86vh;
+}
+
+.heatmap-header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.heatmap-legend {
+    display: flex;
+    align-items: center;
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    gap: 4px;
+}
+
+.heatmap-legend-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 4px;
+}
+
+.heatmap-legend-swatch.heatmap-legend-neg {
+    background-color: #F44336;
+}
+
+.heatmap-legend-swatch.heatmap-legend-pos {
+    background-color: #4CAF50;
+    margin-left: 10px;
+}
+
+.heatmap-body {
+    max-height: calc(86vh - 60px);
+    overflow-y: auto;
+}
+
+.heatmap-groupby-toggle {
+    display: flex;
+    gap: 2px;
+    background-color: var(--bg-input);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+}
+
+.heatmap-groupby-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.heatmap-groupby-btn:hover {
+    color: var(--text-primary);
+}
+
+.heatmap-groupby-btn.active {
+    background-color: var(--gold-dim);
+    color: var(--gold);
+}
+
+/* Sektöre göre gruplu görünümde her sektör kendi başlığı + mini ısı
+ * haritası ızgarasıyla ayrı bir bölüm oluyor. */
+.heatmap-sector-group {
+    margin-bottom: 18px;
+}
+
+.heatmap-sector-group:last-child {
+    margin-bottom: 0;
+}
+
+.heatmap-sector-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--tint-05);
+}
+
+.heatmap-sector-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.heatmap-sector-count {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.heatmap-sector-avg {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    margin-left: auto;
+}
+
+.heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 4px;
+}
+
+.heatmap-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px 4px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    color: #fff;
+    text-align: center;
+}
+
+.heatmap-tile:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 2px var(--tint-25);
+    z-index: 2;
+}
+
+.heatmap-tile-symbol {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.heatmap-tile-chg {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    opacity: 0.9;
+}
+
+/* ────────── Keyboard shortcuts help modal ────────── */
+
+.shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 2px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--tint-04);
+}
+
+.shortcut-row:last-child {
+    border-bottom: none;
+}
+
+.shortcut-desc {
+    color: var(--text-secondary);
+}
+
+.shortcut-keys {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--text-muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.shortcut-keys kbd {
+    display: inline-block;
+    background-color: var(--tint-06);
+    border: 1px solid var(--tint-14);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--gold-light);
+}
+
+/* ────────── Drawing right-click context menu ────────── */
+
+.drawing-context-menu {
+    display: none;
+    position: fixed;
+    z-index: 900;
+    min-width: 130px;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    padding: 4px;
+    flex-direction: column;
+}
+
+.drawing-context-menu.open {
+    display: flex;
+}
+
+.drawing-context-item {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-align: left;
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.drawing-context-item:hover {
+    background-color: var(--gold-dim);
+    color: var(--gold-light);
+}
+
+.drawing-context-item.danger:hover {
+    background-color: rgba(244, 67, 54, 0.12);
+    color: #F44336;
+}
+
+.drawing-context-item.disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+/* Zaman dilimi (resolution) şeridi — gerçek TradingView konumu: ana araç
+ * çubuğunun hemen altında, mum grafiğinin üstünde. */
+/* (18 Temmuz 2026, onuncu oturum, beşinci tur — "şirket temel verileri")
+   Kendi ince satırı, sıkışık .tv-toolbar flex satırının dışında — bu
+   araç çubuğunun geçmişte birkaç kez taşma/kırpılma hatası yaşadığı
+   belgelenmişti, o riski tekrar almamak için ayrı bir satıra kondu. */
+.tv-fundamentals-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--tint-05);
+    flex-shrink: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+/* (28 Ağustos 2026 — "genel görünüm" yenilemesi, Madde: hisse istatistik
+   şeridi) Önceden F/K, Piyasa Değeri, Temettü Verimi vb. tek bir düz metin
+   satırında "·" işaretleriyle ayrılıyordu — artık her biri kendi hafif
+   "kart/chip" arka planına sahip, tek bakışta ayrıştırması çok daha kolay.
+   JS tarafı (tradingChart.js → fetchFundamentals) HİÇ değişmedi, sadece
+   görsel katman — her span zaten "Etiket: değer" metnini kendi içinde
+   tutuyordu, sadece artık bir kart gibi görünüyor. Ayraç noktaları artık
+   gereksiz (chip'lerin kendi kenarlığı zaten ayırıyor), bu yüzden gizlendi. */
+.tv-fundamentals-sep {
+    display: none;
+}
+
+.tv-fundamentals-bar > span:not(.tv-fundamentals-sep) {
+    padding: 3px 10px;
+    background: var(--tint-04);
+    border: 1px solid var(--tint-08);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+/* (29 Temmuz 2026 — "Çoklu Zaman Dilimi Analiz Paneli / MTF Confluence")
+   bkz. tradingChart.js renderMTFPanel(). #tv-fundamentals-bar ile aynı
+   görsel dil, ince ikinci bir bilgi şeridi. Boşken (sembol henüz
+   yüklenmediğinde) içerik boş bırakılıyor, bu yüzden görünmez bir boş
+   satır olarak da düzgün davranıyor. */
+.tv-mtf-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    font-size: 10.5px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--tint-05);
+    flex-shrink: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    min-height: 26px;
+}
+
+.mtf-label {
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-size: 9.5px;
+    flex-shrink: 0;
+}
+
+/* (28 Ağustos 2026 — "genel görünüm" yenilemesi, Madde: zaman dilimi/uyum
+   rozetleri) Bu rozetler zaten hafif bir arka plana sahipti ama küçük
+   ölçekte (0.08 opaklık) neredeyse görünmüyordu — kullanıcı "tek bakışta
+   okunan, belirgin pill rozetler" istedi. Arka plan/kenarlık belirginliği
+   artırıldı, köşeler tam yuvarlatıldı (gerçek "pill" görünümü) ve en
+   önemlisi: aşağıdaki genel özet (.mtf-overall, "GÜÇLÜ YÜKSELİŞ UYUMU" vb.)
+   önceden SADECE renkli metindi, arka planı/kenarlığı hiç yoktu — artık o
+   da aynı pill diline sahip, kendi yönüne göre renkli bir rozet. */
+.mtf-chip {
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--tint-08);
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.mtf-chip-up {
+    color: var(--success, #4CAF50);
+    border-color: rgba(76,175,80,0.4);
+    background-color: rgba(76,175,80,0.14);
+}
+
+.mtf-chip-down {
+    color: var(--danger, #F44336);
+    border-color: rgba(244,67,54,0.4);
+    background-color: rgba(244,67,54,0.14);
+}
+
+.mtf-chip-neutral {
+    color: var(--text-muted);
+    background-color: var(--tint-04);
+}
+
+.mtf-chip-na {
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+.mtf-overall {
+    margin-left: auto;
+    font-weight: 800;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+    padding: 3px 12px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+}
+
+.mtf-up {
+    color: var(--success, #4CAF50);
+    background-color: rgba(76,175,80,0.14);
+    border-color: rgba(76,175,80,0.4);
+}
+.mtf-down {
+    color: var(--danger, #F44336);
+    background-color: rgba(244,67,54,0.14);
+    border-color: rgba(244,67,54,0.4);
+}
+.mtf-up-lean {
+    color: var(--gold, #D4AF37);
+    background-color: var(--gold-dim);
+    border-color: var(--gold-border);
+}
+.mtf-down-lean {
+    color: var(--gold, #D4AF37);
+    background-color: var(--gold-dim);
+    border-color: var(--gold-border);
+}
+.mtf-mixed {
+    color: var(--text-muted);
+    background-color: var(--tint-04);
+    border-color: var(--tint-08);
+}
+
+.tv-resolution-bar {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 14px;
+    border-bottom: 1px solid var(--tint-05);
+    flex-shrink: 0;
+}
+
+.tv-res-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    padding: 3px 9px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.tv-res-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--tint-05);
+}
+
+.tv-res-btn.active {
+    color: var(--gold);
+    background-color: var(--gold-dim);
+    border-color: var(--gold-border);
+}
+
+/* (22 Temmuz 2026, on ikinci oturum, üçüncü tur) Strateji Tekrarı ("zaman
+   makinesi") kontrol şeridi — #tv-resolution-bar'ın hemen altında, sadece
+   #btn-toggle-replay ile açıldığında görünür (display:none varsayılan). */
+.tv-replay-bar {
+    align-items: center;
+    gap: 10px;
+    padding: 5px 14px;
+    border-bottom: 1px solid var(--gold-border);
+    background-color: var(--gold-dim);
+    flex-shrink: 0;
+}
+
+.tv-replay-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--gold-border);
+    color: var(--gold);
+    width: 26px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: var(--transition-fast);
+}
+
+.tv-replay-btn:hover {
+    background-color: var(--gold-border);
+}
+
+.tv-replay-exit-btn {
+    color: var(--text-secondary);
+    border-color: var(--tint-10, rgba(255,255,255,0.1));
+    margin-left: auto;
+}
+
+.tv-replay-slider {
+    flex: 1 1 auto;
+    min-width: 60px;
+    max-width: 320px;
+    accent-color: var(--gold);
+    cursor: pointer;
+}
+
+.tv-replay-date-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    min-width: 90px;
+}
+
+.tv-replay-speed-group {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.tv-replay-speed-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.tv-replay-speed-btn:hover {
+    color: var(--text-primary);
+}
+
+.tv-replay-speed-btn.active {
+    color: var(--gold);
+    background-color: var(--bg-panel);
+    border-color: var(--gold-border);
+}
+
+.tv-replay-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--gold);
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.tv-chart-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    gap: 2px;
+}
+
+/* (18 Temmuz 2026, onuncu oturum) Dual-Chart panelleri — pane-1 ana (çizim
+   araçlı) grafiği taşır ve tekli modda %100 genişlik kaplar; pane-2 sadece
+   Dual-Chart açıkken görünür olur (bkz. .tv-chart-area.tv-dual-active). */
+.tv-chart-pane {
+    position: relative;
+    flex: 1 1 100%;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.tv-chart-pane-2 {
+    display: none;
+    flex: 1 1 50%;
+    border-left: 1px solid var(--gold-border);
+}
+
+.tv-chart-area.tv-dual-active .tv-chart-pane-1 {
+    flex: 1 1 50%;
+}
+
+.tv-chart-area.tv-dual-active .tv-chart-pane-2 {
+    display: flex;
+}
+
+.tv-dual-pane-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--tint-05);
+    flex-shrink: 0;
+}
+
+.tv-dual-pane-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+}
+
+.tv-dual-pane-label:hover {
+    color: var(--gold-light);
+    border-bottom-color: var(--gold-border);
+}
+
+/* (22 Temmuz 2026, on ikinci oturum, ikinci tur) Karşılaştırma sembolü
+   seçici — .tv-dual-pane-label'a tıklanınca bu inputun yerini alır (bkz.
+   tradingChart.js setupDualSymbolPicker()). */
+.tv-dual-symbol-input {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    width: 110px;
+    padding: 2px 6px;
+    background-color: var(--bg-elevated, var(--bg-panel));
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary, #eaeaea);
+    text-transform: uppercase;
+}
+
+.tv-dual-symbol-input:focus {
+    outline: none;
+    border-color: var(--gold);
+}
+
+.tv-dual-res-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* (18 Temmuz 2026, onuncu oturum, ikinci tur) Dual-Chart panelinin kendi
+   sade SMA20/EMA9 overlay toggle butonları — bkz. tradingChart.js
+   toggleDualOverlay()/refreshDualOverlays(). */
+.tv-dual-overlay-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.tv-dual-overlay-btn {
+    background: transparent;
+    border: 1px solid var(--tint-08);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 3px 6px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    white-space: nowrap;
+}
+
+.tv-dual-overlay-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--gold-border);
+}
+
+.tv-dual-overlay-btn.active {
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold-light);
+}
+
+/* (29 Temmuz 2026 — "BIST100 Endeksi ile Göreceli Güç") Karşılaştırma
+   sembolünü tek tıkla gerçek BIST100 endeksine (XU100) çeviren kısayol çip. */
+.tv-dual-index-chip {
+    background: transparent;
+    border: 1px dashed var(--gold-border);
+    border-radius: var(--radius-sm);
+    color: var(--gold);
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 3px 7px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    white-space: nowrap;
+}
+
+.tv-dual-index-chip:hover {
+    background-color: var(--gold-dim);
+    border-style: solid;
+}
+
+.tv-dual-relstrength {
+    padding: 3px 10px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--tint-05);
+    flex-shrink: 0;
+}
+
+.tv-dual-relstrength .relstr-positive {
+    color: var(--success, #4CAF50);
+    font-weight: 700;
+}
+
+.tv-dual-relstrength .relstr-negative {
+    color: var(--danger, #F44336);
+    font-weight: 700;
+}
+
+/* (29 Temmuz 2026 — "Dual-chart panelinde bağımsız gösterge desteği")
+   Dual-chart'ın kendi osilatör mini-panelleri — ana grafiğin
+   #tv-subpanes-container'ıyla AYNI görsel dil, ama Karşılaştırma
+   panelinin (tv-chart-pane-2) İÇİNDE, kendi bağımsız akışında. */
+.tv-dual-subpanes-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex-shrink: 0;
+}
+
+.tv-dual-subpanes-container .tv-osc-pane {
+    flex: 0 0 110px;
+    min-height: 70px;
+}
+
+.tv-dual-chart-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+}
+
+.tv-main-chart {
+    position: absolute;
+    inset: 0;
+}
+
+.tv-draw-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    /* width/height JS tarafında plot alanına (fiyat skalası hariç) ayarlanır */
+    pointer-events: none;
+    z-index: 5;
+}
+
+.tv-ohlc-legend {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    z-index: 6;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    background-color: var(--glass-bg-3);
+    backdrop-filter: blur(4px);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+    padding: 5px 12px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    pointer-events: none;
+}
+
+/* (22 Temmuz 2026, on ikinci oturum, üçüncü tur) Sinyal Anlatıcısı açıklama
+   balonu — bir AL/SAT ok işaretine tıklanınca tıklanan noktanın yakınına
+   mutlak konumlanır (bkz. tradingChart.js showSignalTooltip). Ana grafik
+   çizim katmanının (z-index:5) ÜSTÜNDE durması gerekiyor; kendi kapatma
+   düğmesi dışında tıklamaları geçirmesi gerekmediği için pointer-events
+   varsayılan (auto) bırakıldı. */
+.tv-signal-tooltip {
+    position: absolute;
+    z-index: 15;
+    max-width: 260px;
+    background-color: var(--glass-bg-3);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+}
+
+.tv-signal-tooltip-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.tv-signal-tooltip-badge {
+    font-size: 10px;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    padding: 1px 7px;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.03em;
+}
+
+.tv-signal-badge-buy {
+    color: #4CAF50;
+    background-color: rgba(76,175,80,0.14);
+    border: 1px solid rgba(76,175,80,0.4);
+}
+
+.tv-signal-badge-sell {
+    color: #F44336;
+    background-color: rgba(244,67,54,0.14);
+    border: 1px solid rgba(244,67,54,0.4);
+}
+
+.tv-signal-tooltip-date {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    flex: 1 1 auto;
+}
+
+.tv-signal-tooltip-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    flex-shrink: 0;
+}
+
+.tv-signal-tooltip-close:hover {
+    color: var(--text-primary);
+}
+
+.tv-signal-tooltip-text {
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--text-primary);
+}
+
+/* --- Çoklu Grafik / 2x2 Izgara Düzeni (17 Temmuz 2026, yedinci oturum) --- */
+.tv-grid-view {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px;
+    background-color: var(--gold-border);
+}
+
+.tv-grid-cell {
+    background-color: var(--bg-panel);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+}
+
+.tv-grid-cell-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--tint-05);
+    flex-shrink: 0;
+}
+
+.tv-grid-symbol-select {
+    flex: 1;
+    background-color: var(--bg-input);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 6px;
+    font-family: var(--font-sans);
+}
+
+.tv-grid-promote-btn {
+    background: transparent;
+    border: 1px solid var(--gold-border);
+    color: var(--gold);
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: var(--transition-fast);
+}
+
+.tv-grid-promote-btn:hover {
+    background-color: var(--gold-dim);
+}
+
+/* (22 Temmuz 2026, on ikinci oturum) Tek aç/kapa butonu yerine hücre başına
+   İKİ FARKLI gösterge arasında seçim yapılabilen bir <select> — bkz.
+   multiChartGrid.js refreshCellOverlay() (mode: 'none' | 'trend' | 'bollinger'). */
+.tv-grid-indicator-select {
+    background-color: var(--bg-input);
+    border: 1px solid var(--tint-14);
+    color: var(--text-muted);
+    font-size: 9px;
+    font-weight: 600;
+    padding: 3px 3px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    flex-shrink: 0;
+    max-width: 78px;
+    transition: var(--transition-fast);
+}
+
+.tv-grid-indicator-select:hover {
+    color: var(--text-primary);
+    border-color: var(--gold-border);
+}
+
+/* (22 Temmuz 2026, on ikinci oturum) Hücre başına anlık fiyat/değişim rozeti
+   — bkz. multiChartGrid.js tickGrid(). Piyasa kapalıyken son fiyatta donuk
+   kalır (isMarketOpenNow() kontrolü tickGrid() içinde). */
+.tv-grid-price-badge {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'Fira Code', monospace;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.tv-grid-price-badge.up { color: var(--success); }
+.tv-grid-price-badge.down { color: var(--danger); }
+
+.tv-grid-cell-chart-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+}
+
+.tv-grid-cell-chart {
+    position: absolute;
+    inset: 0;
+}
+
+/* (22 Temmuz 2026, on ikinci oturum) Izgara hücresi başına sade çizim
+   katmanı — ana grafiğin (tradingChart.js) tam çizim motorunu 4 kopyaya
+   çıkarmak yerine, bu dosyanın başındaki mimari felsefeye sadık kalarak
+   yalnızca 2 araç (trend çizgisi + yatay çizgi) ve bir "temizle" butonu
+   sunuluyor — bkz. multiChartGrid.js redrawCellCanvas()/setupDrawToolbar(). */
+.tv-grid-draw-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    cursor: crosshair;
+}
+
+.tv-grid-draw-toolbar {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 3;
+    display: flex;
+    gap: 2px;
+    background-color: rgba(0, 0, 0, 0.35);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+}
+
+.tv-grid-draw-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    line-height: 1;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.tv-grid-draw-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--gold-border);
+}
+
+.tv-grid-draw-btn.active {
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.tv-ohlc-legend .ohlc-date {
+    color: var(--gold);
+    font-weight: 600;
+}
+
+/* (18 Temmuz 2026, onuncu oturum) Çoklu-osilatör paneli: tek bir sabit
+   #tv-subpane-wrap yerine, her aktif gösterge için dinamik olarak
+   oluşturulan/kaldırılan bir .tv-osc-pane çocuğu — bkz. tradingChart.js
+   ensureOscillatorPane()/destroyOscillatorPane()/renderAllOscillatorPanes(). */
+.tv-subpanes-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.tv-osc-pane {
+    flex: 0 0 150px;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid rgba(212, 175, 55, 0.12);
+    background-color: var(--bg-panel);
+    position: relative;
+    min-height: 90px;
+}
+
+.tv-osc-pane.dragging {
+    opacity: 0.45;
+}
+
+.tv-osc-pane-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px 4px 14px;
+    flex-shrink: 0;
+}
+
+.tv-osc-drag-handle {
+    cursor: grab;
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: -1px;
+    user-select: none;
+}
+
+.tv-osc-drag-handle:active {
+    cursor: grabbing;
+}
+
+.tv-osc-title {
+    flex: 1 1 auto;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tv-osc-close-btn {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+    user-select: none;
+}
+
+.tv-osc-close-btn:hover {
+    color: var(--danger);
+}
+
+/* (29 Temmuz 2026 — Madde 16 "Alt grafik büyüt/küçült butonları") Sürükleme
+   tutamacı (⋮⋮) zaten var ama fark edilmesi/hassas kullanılması zor —
+   tek tıkla sabit adımlarla büyütüp küçültmek için ek butonlar. */
+.tv-osc-resize-btn {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1;
+    padding: 0 3px;
+    user-select: none;
+}
+
+.tv-osc-resize-btn:hover {
+    color: var(--text-primary);
+}
+
+.tv-osc-chart-mount {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* İndikatör panelini sürükleyerek yeniden boyutlandırma tutamacı — bkz.
+   tradingChart.js setupSubpanesContainer(). */
+.tv-subpane-resize-handle {
+    height: 6px;
+    flex-shrink: 0;
+    cursor: row-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+}
+
+.tv-subpane-resize-handle span {
+    width: 36px;
+    height: 3px;
+    border-radius: 2px;
+    background-color: var(--tint-06);
+    transition: background-color 0.15s ease;
+}
+
+.tv-subpane-resize-handle:hover span,
+.tv-subpane-resize-handle.dragging span {
+    background-color: var(--gold);
+}
+
+/* ==========================================================================
+   QUICK TRADE PANEL (Right Sidebar)
+   ========================================================================== */
+
+.qt-symbol-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--bg-card);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    position: relative; /* qt-symbol-search-popover'ın konumlandığı referans */
+    gap: 8px;
+}
+
+.qt-symbol {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* (2 Ağustos 2026 — revize planı madde 10) Hızlı Alım Satım panelindeki
+   hızlı sembol arama düğmesi ve açılır penceresi. */
+.qt-symbol-search-btn {
+    cursor: pointer;
+    background: none;
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.qt-symbol-search-btn:hover {
+    color: var(--gold);
+    border-color: var(--gold);
+}
+
+.qt-symbol-search-popover {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 14px;
+    right: 14px;
+    z-index: 40;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    padding: 8px;
+}
+
+.qt-symbol-search-results {
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: 6px;
+}
+
+.qt-symbol-search-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.qt-symbol-search-row:hover {
+    background-color: rgba(212, 175, 55, 0.1);
+}
+
+.qt-symbol-search-row .wl-symbol {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-right: 6px;
+}
+
+.qt-symbol-search-row .wl-name {
+    color: var(--text-muted);
+}
+
+.qt-symbol-search-empty {
+    padding: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.qt-price-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.qt-price {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--gold);
+}
+
+.qt-change {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* ────────── Panel sub-tabs (Alım-Satım / Emir Defteri / Son İşlemler) ────────── */
+
+.panel-subtabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--tint-06);
+}
+
+.panel-subtab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 8px 4px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.panel-subtab:hover {
+    color: var(--text-secondary);
+}
+
+.panel-subtab.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+}
+
+.panel-subtab-content {
+    display: none;
+}
+
+.panel-subtab-content.active {
+    display: block;
+}
+
+/* (3 Ağustos 2026 — kullanıcı isteği üzerine) Emir Defteri / Son İşlemler
+   simüle veri panelleri KALDIRILDI — bu bölümdeki stiller de onlarla
+   birlikte kaldırıldı. */
+
+/* ────────── Portfolio performance analytics tab ────────── */
+
+.perf-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.perf-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background-color: var(--tint-03);
+    border: 1px solid var(--tint-06);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+}
+
+.perf-stat-label {
+    font-size: 9.5px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 600;
+}
+
+.perf-stat-val {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary, #eaeaea);
+    font-family: var(--font-mono);
+}
+
+.perf-equity-wrap {
+    margin-bottom: 16px;
+}
+
+.perf-equity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.perf-equity-header span:last-child {
+    font-family: var(--font-mono);
+    color: var(--gold);
+    text-transform: none;
+    font-weight: 700;
+}
+
+.perf-equity-canvas {
+    width: 100%;
+    height: 110px;
+    display: block;
+    border-radius: var(--radius-sm);
+    background-color: var(--tint-02);
+    border: 1px solid var(--tint-05);
+}
+
+.perf-symbol-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 140px;
+    overflow-y: auto;
+}
+
+.perf-symbol-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 5px 8px;
+    background-color: var(--tint-02);
+    border-radius: 4px;
+}
+
+/* (2 Ağustos 2026 — revize planı madde 12) Özet Detay sekmesi — Günlük/
+   Aylık/Yıllık fiyat aralığı içinde son fiyatın konumunu gösteren basit
+   çubuklar (referans: Matriks mobil "Özet Detay" ekranı). */
+.qt-summary-detail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 4px 2px;
+}
+
+.qt-summary-empty {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 20px 0;
+}
+
+.qt-summary-last {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--gold-border);
+}
+
+.qt-summary-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.qt-summary-row-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.qt-summary-slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.qt-summary-edge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    min-width: 52px;
+}
+
+.qt-summary-edge:last-child {
+    text-align: right;
+}
+
+.qt-summary-slider {
+    position: relative;
+    flex: 1 1 auto;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, var(--danger, #EF5350), var(--gold), var(--success, #26A69A));
+    opacity: 0.55;
+}
+
+.qt-summary-slider-fill {
+    display: none; /* arka plan zaten sürekli gradyan — ayrı bir dolgu gerekmiyor */
+}
+
+.qt-summary-slider-dot {
+    position: absolute;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--text-primary);
+    border: 2px solid var(--bg-panel);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 1px var(--gold-border);
+}
+
+/* (23 Temmuz 2026 düzeltmesi — Normal Seans / VİOP ayrımı) Trade tab'ların
+   hemen üstünde duran, hangi piyasada işlem yapıldığını seçen bar. Solda
+   Normal Seans (varsayılan, kaldıraçsız/açığa satışsız), sağda VİOP
+   (kaldıraç + açığa satış). VİOP aktifken ayırt edici bir turuncu/amber
+   renk kullanılıyor ki kullanıcı riskli moddayken bunu net görsün. */
+.market-mode-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    padding: 3px;
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-input);
+}
+
+.market-mode-btn {
+    flex: 1;
+    padding: 7px 0;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background-color: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.market-mode-btn[data-market="NORMAL"].active {
+    background-color: var(--gold-dim);
+    color: var(--gold);
+}
+
+.market-mode-btn[data-market="VIOP"].active {
+    background-color: rgba(255, 152, 0, 0.16);
+    color: #FF9800;
+}
+
+/* (29 Temmuz 2026 — Madde 11: "VİOP ayrı panel") Normal Seans/VİOP
+   düğmelerinin altındaki kısa açıklama — aşağıdaki pozisyon/emir
+   listelerinin de artık moda göre ayrıldığını belirtiyor. */
+.qt-market-scope-hint {
+    font-size: 10.5px;
+    line-height: 1.4;
+    color: var(--text-muted);
+    margin: -4px 0 12px;
+}
+
+.trade-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.trade-tab {
+    flex: 1;
+    padding: 10px 0;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gold-border);
+    background-color: var(--bg-input);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.trade-tab.tab-buy.active {
+    background-color: rgba(46, 125, 50, 0.18);
+    border-color: #4CAF50;
+    color: #4CAF50;
+}
+
+.trade-tab.tab-sell.active {
+    background-color: rgba(198, 40, 40, 0.18);
+    border-color: #F44336;
+    color: #F44336;
+}
+
+.order-type-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.order-type-btn {
+    flex: 1;
+    padding: 6px 0;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--gold-border);
+    background-color: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.order-type-btn.active {
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.qty-pct-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.qty-pct-btn {
+    flex: 1;
+    padding: 5px 0;
+    font-size: 10px;
+    font-weight: 700;
+    background-color: var(--bg-input);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.qty-pct-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.qt-estimate-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin: 14px 0;
+    padding-top: 10px;
+    border-top: 1px dashed var(--tint-08);
+}
+
+#qt-est-cost {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.btn-trade-submit:disabled {
+    /* (9 Ağustos 2026 — piyasa kapalıyken/admin durdurunca emir engelleme)
+       Piyasa kapalı veya admin alım-satımı durdurmuşken buton disabled
+       oluyor (bkz. tradingEngine.js updateTradeAvailabilityUI()) — bunun
+       AÇIK/kullanılabilir bir buton gibi görünmemesi için. */
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.btn-trade-submit {
+    width: 100%;
+    padding: 14px 0;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    border-radius: var(--radius-md);
+    border: none;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    text-transform: uppercase;
+}
+
+.btn-trade-submit.btn-buy {
+    background: linear-gradient(135deg, #2E7D32, #4CAF50);
+    color: #FFFFFF;
+    box-shadow: 0 2px 10px rgba(76, 175, 80, 0.25);
+}
+
+.btn-trade-submit.btn-buy:hover {
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-trade-submit.btn-sell {
+    background: linear-gradient(135deg, #C62828, #F44336);
+    color: #FFFFFF;
+    box-shadow: 0 2px 10px rgba(244, 67, 54, 0.25);
+}
+
+.btn-trade-submit.btn-sell:hover {
+    box-shadow: 0 4px 16px rgba(244, 67, 54, 0.4);
+    transform: translateY(-1px);
+}
+
+.qt-account-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.qt-account-summary-2col {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.acct-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background-color: var(--bg-card);
+    border: 1px solid var(--tint-05);
+    border-radius: var(--radius-sm);
+    padding: 8px;
+}
+
+.acct-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.acct-value {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.qt-mini-table {
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.qt-mini-table .data-table th,
+.qt-mini-table .data-table td {
+    padding: 6px 8px;
+}
+
+/* ────────── Açık Pozisyonlar / Bekleyen OCO / Son Emirler kart listeleri ──────────
+ * (23 Temmuz 2026, on üçüncü oturum devamı) Bu üç kutu önceden 5-6 sütunlu
+ * <table> idi. Ticket panelinin sabit dar genişliğinde bu, yatay kaydırma
+ * gerektiriyordu ve K/Z gibi parasal değerler sütuna sığmayınca "-" işareti
+ * kendi satırına düşecek şekilde kırılıyordu (kullanıcı ekran görüntüsüyle
+ * bildirdi: "yukarıda sayı aşağıda kalmış"). Çözüm: her satırı, üstte ana
+ * bilgi (sembol/saat + K/Z veya yön), altta ikincil bilgi (adet/fiyat +
+ * butonlar) olacak şekilde DİKEY istifleyen kompakt bir karta çeviriyoruz —
+ * hiçbir sütun genişliğe bağımlı değil, tutar alanları white-space: nowrap
+ * ile her zaman tek satırda kalıyor. */
+.qt-card-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.qt-empty-state {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 16px;
+    font-size: 11px;
+}
+
+.pos-card,
+.oco-card,
+.order-card {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--tint-03);
+}
+
+.pos-card:last-child,
+.oco-card:last-child,
+.order-card:last-child {
+    border-bottom: none;
+}
+
+.pos-card:hover,
+.oco-card:hover,
+.order-card:hover {
+    background-color: rgba(212, 175, 55, 0.03);
+}
+
+.pos-card-top,
+.pos-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pos-card-bottom {
+    margin-top: 5px;
+}
+
+.pos-card-id {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 12px;
+}
+
+.pos-card-id .font-bold {
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pos-card-pnl {
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.pos-card-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pos-card-dot {
+    margin: 0 5px;
+    opacity: 0.5;
+}
+
+.oco-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.oco-card-bottom {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 5px;
+    font-size: 10px;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+}
+
+.order-card-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+}
+
+.order-card-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.order-card-top .font-bold {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.order-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 11px;
+}
+
+.order-card-bottom .font-mono:first-child {
+    color: var(--text-muted);
+}
+
+.btn-close-pos {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 4px;
+    background-color: rgba(244, 67, 54, 0.1);
+    border: 1px solid rgba(244, 67, 54, 0.35);
+    color: #F44336;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-close-pos:hover {
+    background-color: rgba(244, 67, 54, 0.25);
+}
+
+/* (10 Ağustos 2026 — VİOP asgari tutma süresi) Pozisyon henüz asgari süreyi
+   doldurmadan buton geri sayım gösterip devre dışı kalır — bkz. tradingEngine.js
+   renderPositionsInto/closePosition. */
+.btn-close-pos:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: var(--text-muted);
+}
+
+.btn-close-pos:disabled:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.qt-disclaimer {
+    margin-top: 14px;
+    font-size: 9.5px;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.5;
+    padding: 8px;
+    border: 1px dashed var(--tint-08);
+    border-radius: var(--radius-sm);
+}
+
+/* --- Responsive: stack trading chart taller on smaller screens --- */
+@media (max-width: 1024px) {
+    .trading-chart-section {
+        min-height: 320px;
+    }
+    .tv-osc-pane {
+        flex-basis: 110px;
+    }
+}
+
+/* Dar ekranlarda iki grafiği yan yana sığdırmak gerçekçi değil — Dual-Chart
+   ikinci paneli mobilde/tablette her zaman gizli kalır (JS state'i dokunulmaz,
+   sadece görsel olarak tekli moda düşer; masaüstüne dönünce otomatik geri gelir). */
+@media (max-width: 900px) {
+    .tv-chart-pane-2 {
+        display: none !important;
+    }
+    .tv-chart-area.tv-dual-active .tv-chart-pane-1 {
+        flex: 1 1 100%;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TAM EKRAN GRAFİK MODU (18 Temmuz 2026, onuncu oturum)
+   Header, izleme listesi (sidebar) ve işlem panelini gizleyip grafiği (tekli
+   ya da Dual-Chart) tüm viewport'a büyütür. Grid sütun/satırlarını 0'a
+   indirmek (display:none yerine) layout'un aniden zıplamasını önlüyor ve
+   ResizeObserver'ın (tradingChart.js setupResize()) geçişi doğal biçimde
+   yakalamasını sağlıyor.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.dashboard-container.tv-fullscreen-mode {
+    grid-template-rows: 0 1fr 0;
+}
+
+.dashboard-container.tv-fullscreen-mode > .dashboard-header,
+.dashboard-container.tv-fullscreen-mode > .dashboard-footer {
+    display: none;
+}
+
+.dashboard-container.tv-fullscreen-mode .dashboard-body {
+    grid-template-columns: 0 1fr 0;
+}
+
+.dashboard-container.tv-fullscreen-mode .sidebar-panel,
+.dashboard-container.tv-fullscreen-mode .competition-panel {
+    display: none;
+}
+
+.dashboard-container.tv-fullscreen-mode .trading-chart-section {
+    min-height: 100vh;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SOL DİKEY ÇİZİM ARAÇLARI RAYI (18 Temmuz 2026, onuncu oturum)
+   Masaüstünde #chart-toolbar'ı (zaten var olan ~20+ gerçek çizim aracı —
+   TOOL_GROUPS, tradingChart.js) yatay araç çubuğundan çıkarıp ekranın en
+   solunda TradingView tarzı dikey bir raya sabitliyor. Araçların KENDİSİ
+   değişmiyor — yalnızca konum/yön değişiyor (bkz. tradingChart.js
+   toggleFlyout()'taki dikey-mod dallanması). Dar ekranlarda (bkz. altındaki
+   980px medya sorgusu) bu blok devre dışı kalır ve araç çubuğu eskisi gibi
+   .tv-toolbar içinde yatay akışa döner. */
+@media (min-width: 981px) {
+    .dashboard-container {
+        padding-left: 46px;
+    }
+
+    #chart-toolbar.tv-drawing-toolbar {
+        position: fixed;
+        left: 0;
+        top: 64px;
+        bottom: 32px;
+        width: 46px;
+        z-index: 250;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        padding: 10px 4px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        border-left: none;
+        border-right: 1px solid var(--gold-border);
+        background-color: var(--bg-sidebar);
+    }
+
+    .dashboard-container.tv-fullscreen-mode #chart-toolbar.tv-drawing-toolbar {
+        top: 0;
+        bottom: 0;
+    }
+
+    #chart-toolbar.tv-drawing-toolbar .tv-tool-group {
+        display: flex;
+    }
+
+    #chart-toolbar.tv-drawing-toolbar .tv-toolbar-sep {
+        width: 26px;
+        height: 1px;
+        margin: 3px 0;
+    }
+
+    /* (18 Temmuz 2026, onuncu oturum, ikinci tur) Sol dikey araç rayını
+       daraltma/genişletme — bkz. tradingChart.js setupRailCollapse(). Rayı
+       görsel olarak sola kaydırıp gizliyoruz, sayfa yerleşimini de padding
+       kaldırarak geri kazandırıyoruz. Küçük ok tutamacı her zaman görünür
+       kalır (rayın dışında, sabit konumda) böylece geri açılabilir. */
+    .dashboard-container.tv-rail-collapsed {
+        padding-left: 0;
+    }
+
+    .dashboard-container.tv-rail-collapsed #chart-toolbar.tv-drawing-toolbar {
+        transform: translateX(-100%);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    #btn-toggle-rail {
+        position: fixed;
+        left: 46px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 40px;
+        z-index: 251;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--bg-sidebar);
+        border: 1px solid var(--gold-border);
+        border-left: none;
+        border-radius: 0 6px 6px 0;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: left 0.18s ease, color 0.15s ease;
+        padding: 0;
+    }
+
+    #btn-toggle-rail:hover {
+        color: var(--gold);
+    }
+
+    .dashboard-container.tv-rail-collapsed #btn-toggle-rail {
+        left: 0;
+    }
+
+    .dashboard-container.tv-fullscreen-mode #btn-toggle-rail {
+        display: none;
+    }
+}
+
+@media (max-width: 980px) {
+    #btn-toggle-rail {
+        display: none;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBİL ARAÇ ÇUBUĞU YENİDEN DÜZENİ (19 Temmuz 2026, on birinci oturum)
+   980px altında #chart-toolbar (sol dikey ray yerine, yukarıdaki
+   "min-width:981px" bloğu devre dışı kaldığı için) yeniden .tv-toolbar'ın
+   İÇİNE, yatay akışa dönüyor. Ama tek satırlık .tv-toolbar zaten sembol adı +
+   grafik tipi menüsü + fiyat ölçeği/göstergeler/alarmlar düğmeleriyle dolu —
+   ~20 gerçek çizim aracı da eklenince satır genişliği 1100px'i aşıp 390px'lik
+   bir telefonda aracın büyük kısmı tek bir belirsiz yatay kaydırmanın
+   arkasında ekran dışında kalıyordu (ölçüldü: 1124px içerik / 390px viewport,
+   çizim rayı left:333px'te başlıyordu). Araçların KENDİSİ hâlâ değişmiyor —
+   yalnızca çizim rayına ve gösterge chip şeridine kendi tam genişlikte, kendi
+   yatay kaydırmalı satırları veriyoruz; üstteki satır (sembol/grafik
+   tipi/ölçek/göstergeler/alarmlar) böylece her zaman doğrudan görünür
+   kalıyor. */
+@media (max-width: 980px) {
+    .tv-toolbar {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: 48px;
+        row-gap: 6px;
+        padding: 8px 10px;
+    }
+
+    #chart-toolbar.tv-drawing-toolbar {
+        order: 5;
+        flex: 1 1 100%;
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        border-left: none;
+        border-top: 1px solid var(--tint-06);
+        padding-left: 0;
+        padding-top: 6px;
+        scrollbar-width: none;
+    }
+
+    #chart-toolbar.tv-drawing-toolbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .tv-overlay-legend {
+        order: 6;
+        flex: 1 1 100%;
+        width: 100%;
+    }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FEATURE TOUR / DEMO WIZARD (tanıtım sihirbazı)
+   A small floating step-by-step card. No dark overlay, but each step DOES
+   drive the real UI (opens the real modal / switches the real tab) AND
+   visually highlights the real element being described (gold glow ring),
+   with the card itself docked right next to it — so a live presentation
+   both narrates and points at the actual app, not screenshots.
+   See tourGuide.js.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.btn-tour {
+    position: relative;
+}
+
+.btn-tour.tour-attention {
+    animation: tourBtnPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes tourBtnPulse {
+    0%, 100% { box-shadow: 0 0 0 0 var(--gold-glow, rgba(212, 175, 55, 0.45)); }
+    50% { box-shadow: 0 0 0 6px rgba(212, 175, 55, 0); }
+}
+
+/* Gold glow ring applied to whatever real element the current tour step is
+   describing (chart toolbar, a modal, a panel tab, ...). Added/removed by
+   tourGuide.js as steps change. */
+.tour-highlight-ring {
+    box-shadow: 0 0 0 3px var(--gold), 0 0 22px 4px var(--gold-glow, rgba(212, 175, 55, 0.5));
+    border-radius: 8px;
+    animation: tourHighlightPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes tourHighlightPulse {
+    0%, 100% { box-shadow: 0 0 0 3px var(--gold), 0 0 22px 4px var(--gold-glow, rgba(212, 175, 55, 0.5)); }
+    50% { box-shadow: 0 0 0 3px var(--gold), 0 0 34px 8px var(--gold-glow, rgba(212, 175, 55, 0.5)); }
+}
+
+.tour-card {
+    position: fixed;
+    z-index: 950;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    background-color: var(--bg-panel);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--radius-md, 10px);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+    padding: 18px 20px 16px;
+    opacity: 0;
+    pointer-events: none;
+    transition: top 0.28s cubic-bezier(0.4, 0, 0.2, 1), left 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease;
+}
+
+.tour-card.tour-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.tour-card-eyebrow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.tour-step-count {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--gold);
+    text-transform: uppercase;
+}
+
+.tour-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+    margin: -4px -4px 0 0;
+}
+
+.tour-close-btn:hover {
+    color: #F44336;
+    background-color: rgba(244, 67, 54, 0.1);
+}
+
+.tour-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+}
+
+.tour-card-desc {
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    margin: 0 0 16px;
+}
+
+.tour-progress-track {
+    width: 100px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: var(--tint-14);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.tour-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--gold-dark), var(--gold));
+    transition: width 0.25s ease;
+}
+
+.tour-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.tour-nav-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.tour-btn {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    border: 1px solid var(--gold-border);
+    background: transparent;
+    color: var(--gold);
+}
+
+.tour-btn:hover {
+    background-color: var(--gold-dim);
+    border-color: var(--gold);
+}
+
+.tour-btn-primary {
+    background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+    border: 1px solid var(--gold);
+    color: var(--text-dark);
+}
+
+.tour-btn-primary:hover {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+}
+
+.tour-btn-skip {
+    border-color: transparent;
+    color: var(--text-muted);
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.tour-btn-skip:hover {
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.tour-card.tour-welcome,
+.tour-card.tour-finish {
+    width: 400px;
+    text-align: center;
+}
+
+.tour-card.tour-welcome .tour-card-title,
+.tour-card.tour-finish .tour-card-title {
+    font-size: 18px;
+}
+
+.tour-card.tour-welcome .tour-card-footer,
+.tour-card.tour-finish .tour-card-footer {
+    justify-content: center;
+}
+
+.tour-card.tour-welcome .tour-progress-track,
+.tour-card.tour-finish .tour-progress-track {
+    display: none;
+}
+
+@media (max-width: 720px) {
+    .tour-card {
+        width: calc(100vw - 32px);
+    }
+}

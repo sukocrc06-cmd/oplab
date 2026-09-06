@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="OptiPulseLab - High-performance algorithmic trading backtest and optimization dashboard. Analyze strategies, metrics, and equity curves.">
+    <title>OptiPulseLab - Algorithmic Testing Dashboard</title>
+    <!-- Apply the saved theme before first paint, so there's no dark/light flash. -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('optipulselab_theme');
+                if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+            } catch (e) { /* localStorage unavailable (private mode etc.) — default dark */ }
+        })();
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- (28 Ağustos 2026 — PageSpeed Insights raporu, "verimli önbellek
+         süreleri" bulgusu) Aşağıdaki tüm YEREL statik dosyalar (CSS + JS)
+         artık vercel.json'da UZUN süreli (1 yıl, immutable) tarayıcı
+         önbelleğiyle sunuluyor — normalde bu, bir dosyayı GÜNCELLEDİĞİMİZDE
+         (bu proje neredeyse her gün güncelleniyor) kullanıcıların tarayıcısı
+         eski sürümü bir yıl boyunca göstermeye devam eder demektir (TEHLİKELİ
+         bir "eski sürüme takılı kalma" riski). Bunu önlemek için her dosya
+         referansına bir `?v=TARİH` sürüm parametresi eklendi — bu sadece bir
+         yorum, tarayıcı için farklı bir URL demek, yani farklı bir önbellek
+         girdisi. Dosyalardan HERHANGİ BİRİ (styles.css/.min.css veya
+         tradingChart.js/.min.js vb.) bundan sonra değiştirilirse, buradaki
+         İLGİLİ `?v=...` değeri MUTLAKA artırılmalı — aksi halde kullanıcılar
+         (ve YARIŞMA GÜNÜ jüri) hâlâ eski, önbelleğe alınmış dosyayı görmeye
+         devam eder, canlıya yansıyan düzeltme hiç görünmez.
+    -->
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.min.css?v=20260830d">
+</head>
+<body>
+    <!-- (20 Ağustos 2026 — FinTeClub bağlantısı kullanıcı isteğiyle geri
+         getirildi) 17 Ağustos'ta kaldırılmış olan erişim kilidi ve giriş
+         modalı yeniden eklendi — finteclubBridge.js updateAccessGate()/
+         syncLoginUI() bunları admin durumuna göre .hidden sınıfıyla
+         gösterip gizliyor. -->
+    <div class="ftc-oplab-gate hidden" id="ftc-oplab-gate">
+        <div class="ftc-oplab-gate-box">
+            <div class="ftc-oplab-gate-title">Platform Geçici Olarak Kapalı</div>
+            <p>OPLab şu anda yönetici tarafından geçici olarak devre dışı bırakıldı. Lütfen daha sonra tekrar deneyin.</p>
+        </div>
+    </div>
+
+    <div class="ftc-login-modal-overlay hidden" id="ftc-login-modal-overlay">
+        <div class="ftc-login-modal-box">
+            <div class="ftc-login-modal-title">FinteLig Girişi</div>
+            <p class="ftc-login-modal-desc">FinteLig yarışmacısıysan, başvuruda belirlediğin e-posta ve şifreyle giriş yap. Yarışmacı değilsen giriş yapmadan da platformu kullanabilirsin.</p>
+            <div id="ftc-login-modal-form">
+                <input type="email" id="ftc-modal-login-email" class="form-input" placeholder="Kayıtlı e-postan..." autocomplete="username">
+                <input type="password" id="ftc-modal-login-password" class="form-input" placeholder="Şifren..." autocomplete="current-password">
+                <button type="button" class="btn btn-primary" style="width:100%;margin-top:6px;" id="ftc-modal-login-btn">Giriş Yap</button>
+                <div class="ftc-verify-status" id="ftc-modal-login-status"></div>
+            </div>
+            <div id="ftc-login-modal-welcome" class="ftc-login-modal-welcome hidden"></div>
+            <button type="button" class="ftc-login-modal-skip" id="ftc-login-modal-skip">Giriş yapmadan devam et →</button>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- HEADER -->
+        <header class="dashboard-header" id="main-header">
+            <div class="logo-area">
+                <button type="button" class="btn btn-icon mobile-drawer-toggle" id="btn-toggle-sidebar" aria-label="Piyasa panelini aç/kapat" title="Piyasa Paneli">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+                <!-- (28 Ağustos 2026 — header sadeleştirme/yenileme) Önceden bu
+                     noktun yanında ayrıca metin olarak "Engine: ONLINE/OFFLINE"
+                     yazan bir rozet vardı — kullanıcı bunu gereksiz teknik gürültü
+                     olarak nitelendirdi ve kaldırılmasını istedi. AMA bu metin
+                     salt dekoratif değildi: checkBackendHeartbeat() (app.js) her
+                     8 saniyede backend'in GERÇEKTEN ayakta olup olmadığını
+                     kontrol edip buraya yazıyordu, ayrıca üzerine gelince o an
+                     gerçek yfinance verisi mi yoksa yerel simülasyon mu
+                     gösterildiğini anlatan bir tooltip taşıyordu — bu proje
+                     boyunca defalarca vurgulanan "asla uydurma veri gerçekmiş
+                     gibi gösterilmesin" ilkesiyle doğrudan ilgili, gerçek bir
+                     sinyal. Metni sessizce atıp bu sinyali de kaybetmek yerine,
+                     zaten var olan bu nabız noktasına taşındı: id eklendi, artık
+                     backend gerçekten çöktüğünde (ki bu ihtimal düşük ama sıfır
+                     değil) kırmızıya dönüp durağanlaşıyor, sağlıklıyken eskisi
+                     gibi altın rengi nabız atıyor — VE aynı tooltip metni artık
+                     bu noktanın üzerine gelince görünüyor. Görsel olarak header
+                     çok daha sade, ama bilgi kaybı yok. -->
+                <div class="pulse-indicator" id="engine-pulse-dot" title="Backend durumu kontrol ediliyor…"></div>
+                <h1>OptiPulse<span>Lab</span></h1>
+                <!-- (18 Temmuz 2026, onuncu oturum, dördüncü tur) "Şu an analiz
+                     ediliyor: SEMBOL" etiketi kaldırıldı — aynı bilgi zaten
+                     grafiğin üstündeki sembol başlığında (#tv-symbol-name) çok
+                     daha belirgin şekilde gösteriliyor; buradaki kopya sadece
+                     header'da gereksiz yer kaplıyordu (bkz. arayuz-iyilestirme-
+                     onerileri.md, Madde 4). -->
+            </div>
+            <div class="header-status">
+                <!-- (28 Ağustos 2026 — header sadeleştirme) "Latency: 1.2ms"
+                     satırı tamamen kaldırıldı — yarışmacı için pratik bir
+                     karşılığı olmayan, salt teknik bir ayrıntıydı. Kalan üç
+                     durum öğesi (Saat/Piyasa/Nabız) artık tek bir hafif
+                     "cam" grup içinde, aralarında ince ayraçlarla — dağınık
+                     ayrı etiketler yerine tek, düzenli bir bilgi şeridi. -->
+                <div class="header-status-group">
+                    <div class="status-item text-hide-mobile">
+                        <span class="status-label">Saat:</span>
+                        <span class="status-value" id="market-time">13:58:19 UTC</span>
+                    </div>
+                    <div class="status-item text-hide-mobile" id="market-status-container">
+                        <span class="status-label">Piyasa:</span>
+                        <span class="status-value" id="market-status-val" style="font-weight: 600;">CHECKING...</span>
+                        <span id="market-status-sub" style="font-size: 9px; color: var(--text-muted); margin-left: 5px; display: none;">(Displaying last closing data)</span>
+                    </div>
+                    <!-- (29 Temmuz 2026 — "Piyasa Nabzı / Market Breadth") BIST100
+                         evrenindeki tüm sembollerin günlük açılışa göre kaç tanesinin
+                         yükselişte/düşüşte olduğunu gösteren özet — bkz. tradingEngine.js
+                         computeHeatmapData()/renderMarketBreadth(). Zaten var olan ısı
+                         haritası verisinin (priceProfiles) yeniden kullanımı, YENİ bir
+                         backend isteği gerektirmiyor. -->
+                    <div class="status-item text-hide-mobile" id="market-breadth-container" title="BIST100 evreninde günlük açılışa göre yükselen/düşen sembol sayısı">
+                        <span class="status-label">Nabız:</span>
+                        <span class="status-value" id="market-breadth-val" style="font-weight: 600;">--</span>
+                    </div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button type="button" class="btn btn-icon mobile-drawer-toggle" id="btn-toggle-tradepanel" aria-label="İşlem panelini aç/kapat" title="İşlem Paneli">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M18.7 8l-5.1 5.1-2.8-2.8L7 14"></path></svg>
+                </button>
+                <div class="header-balance-pill" id="header-balance-pill">
+                    <span class="header-balance-label" id="header-balance-label">Bakiye</span>
+                    <span class="header-balance-value" id="header-balance-value">--</span>
+                    <!-- (29 Temmuz 2026 — Madde 8 "Portföy Güncelliği": hocanın
+                         önerdiği çözüm birebir uygulandı — bakiyenin yanına,
+                         işlem yapıldıkça otomatik güncellenen bir "Toplam
+                         Varlık" (özkaynak = bakiye + kullanılan marj + açık
+                         K/Z, computeAccountSnapshot() — tek doğruluk kaynağı)
+                         değeri eklendi. Dar ekranlarda header taşmasın diye
+                         (bkz. .header-equity-block, ≤650px'te gizleniyor;
+                         mobilde equity zaten işlem panelindeki #qt-equity ve
+                         profil panelindeki #profile-equity-value'de mevcut). -->
+                    <span class="header-equity-block" id="header-equity-block">
+                        <span class="header-balance-divider">·</span>
+                        <span class="header-balance-label">Toplam Varlık</span>
+                        <span class="header-balance-value" id="header-equity-value">--</span>
+                    </span>
+                </div>
+                <button class="btn btn-icon" id="btn-mute-toggle" title="Sesli Bildirimleri Aç/Kapat">
+                    <svg id="mute-icon-on" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+                    <svg id="mute-icon-off" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                </button>
+                <button class="btn btn-secondary" id="btn-theme-toggle" title="Koyu / Açık Tema (T)">
+                    <svg id="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                    <svg id="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                </button>
+
+                <!-- (18 Temmuz 2026, onuncu oturum, dördüncü tur) Header sıkışıklığı
+                     düzeltmesi (bkz. arayuz-iyilestirme-onerileri.md, Madde 2):
+                     yalnızca sık kullanılan aksiyonlar (Bakiye/Sessize Al/Tema)
+                     her zaman görünür kalıyor; daha az sık kullanılanlar (Tur/Isı
+                     Haritası/Kısayollar/Yardım/Reset) bu hamburger menüye taşındı.
+                     Butonların KENDİSİ (id'leri, click handler'ları) hiç değişmedi
+                     — sadece konumları değişti, bu yüzden tradingEngine.js/app.js/
+                     tourGuide.js'deki mevcut event listener'lar aynen çalışmaya
+                     devam ediyor. Açılma deseni tradingChart.js'teki
+                     setupChartTypeMenu() ile birebir aynı (position:fixed +
+                     getBoundingClientRect, closeOtherModals/closeAllFlyouts,
+                     dışarı tıklama + Escape ile kapanma). -->
+                <div class="header-menu-wrap">
+                    <button type="button" class="btn btn-icon" id="btn-header-menu" title="Diğer İşlemler" aria-label="Diğer İşlemler">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                    </button>
+                    <div class="header-menu-dropdown" id="header-menu-dropdown">
+                        <button class="btn btn-secondary btn-tour" id="btn-open-tour" title="Uygulama Tanıtım Turu">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+                            <span class="btn-label">Tanıtım Turu</span>
+                        </button>
+                        <button class="btn btn-secondary" id="btn-open-heatmap">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+                            <span class="btn-label">Isı Haritası</span>
+                        </button>
+                        <button class="btn btn-secondary" id="btn-open-shortcuts" title="Klavye Kısayolları (?)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M18 14h.01M9 14h6"></path></svg>
+                            <span class="btn-label">Kısayollar</span>
+                        </button>
+                        <button class="btn btn-secondary" id="btn-open-help" title="Yardım / Hakkında">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            <span class="btn-label">Yardım</span>
+                        </button>
+                        <div class="header-menu-divider"></div>
+                        <!-- (18 Temmuz 2026, dördüncü tur, Madde 5e) Kompakt Görünüm:
+                             body'ye .compact-mode class'ı ekleyip localStorage'a yazar;
+                             watchlist satırlarını ve durum çubuğunu CSS ile sıkılaştırır. -->
+                        <button class="btn btn-secondary" id="btn-toggle-compact" title="Daha sık aralıklı, kompakt görünüm" aria-pressed="false">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8"></line><line x1="3" y1="16" x2="21" y2="16"></line></svg>
+                            <span class="btn-label" id="btn-toggle-compact-label">Kompakt Görünüm</span>
+                        </button>
+                        <!-- (6 Ağustos 2026 — "portföy sıfırlama artık sadece admin
+                             yapabilsin") Buradaki "Reset" başlık butonu, tek tıkla (hiçbir
+                             onay istemeden) doğrudan resetPortfolio() çağırıyordu — BİLEREK
+                             kaldırıldı. Sıfırlama artık sadece admin panelinden yapılabiliyor. -->
+                    </div>
+                </div>
+                <!-- (22 Temmuz 2026, on ikinci oturum, ikinci tur — kullanıcı isteği)
+                     Profil simgesi başlangıçta solda, logo-area içindeydi; kullanıcı
+                     "en sağa alalım" dedi. Header'ın en sağındaki eleman olarak buraya
+                     (header-actions'ın sonuna, hamburger menüsünden bile sonra)
+                     taşındı. Açılır panel artık SAĞA hizalı (bkz. tradingEngine.js
+                     setupProfilePanel() — header-menu-dropdown ile aynı sağa-hizalama
+                     deseni), çünkü artık sağdaki bir ikondan tetikleniyor. -->
+                <div class="profile-panel-wrap">
+                    <button type="button" class="btn btn-icon" id="btn-profile" title="Profil" aria-label="Profil">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </button>
+                    <div class="profile-panel-dropdown" id="profile-panel-dropdown">
+                        <div class="profile-panel-header">
+                            <div class="profile-avatar" id="profile-avatar">K</div>
+                            <div class="profile-header-text">
+                                <div class="profile-name-display" id="profile-name-display">Kullanıcı</div>
+                                <div class="profile-header-sub">OptiPulseLab Demo Hesabı</div>
+                                <div class="ftc-badge hidden" id="ftc-badge">✓ FinteLig Yarışmacısı</div>
+                            </div>
+                        </div>
+                        <div class="profile-panel-section">
+                            <div class="profile-stat-row">
+                                <span class="profile-stat-label">Bakiye</span>
+                                <span class="profile-stat-value" id="profile-balance-value">--</span>
+                            </div>
+                            <div class="profile-stat-row">
+                                <span class="profile-stat-label">Özkaynak (Portföy)</span>
+                                <span class="profile-stat-value" id="profile-equity-value">--</span>
+                            </div>
+                            <div class="profile-stat-row">
+                                <span class="profile-stat-label">Açık K/Z</span>
+                                <span class="profile-stat-value" id="profile-pnl-value">--</span>
+                            </div>
+                            <div class="profile-stat-row">
+                                <span class="profile-stat-label">Açık Pozisyon</span>
+                                <span class="profile-stat-value" id="profile-positions-count">--</span>
+                            </div>
+                        </div>
+                        <div class="header-menu-divider"></div>
+                        <div class="profile-panel-section">
+                            <label class="profile-settings-label" for="profile-name-input">Profil Ayarları — İsim</label>
+                            <input type="text" id="profile-name-input" class="form-input profile-name-input" placeholder="İsminizi girin..." maxlength="40">
+                        </div>
+                        <!-- (20 Ağustos 2026 — FinTeClub bağlantısı kullanıcı isteğiyle
+                             geri getirildi) 17 Ağustos'ta kaldırılmış olan "Girişi" bölümü
+                             (ftc-verify-section) yeniden eklendi — finteclubBridge.js'in
+                             init() içindeki loginBtn/logoutBtn/emailInput/pwInput
+                             wiring'i bu ID'leri arıyor. -->
+                        <div class="header-menu-divider"></div>
+                        <div class="profile-panel-section" id="ftc-verify-section">
+                            <label class="profile-settings-label" for="ftc-login-email">FinteLig Girişi</label>
+                            <input type="email" id="ftc-login-email" class="form-input profile-name-input" placeholder="Kayıtlı e-postan..." autocomplete="username">
+                            <input type="password" id="ftc-login-password" class="form-input profile-name-input" placeholder="Şifren..." style="margin-top:8px;" autocomplete="current-password">
+                            <button type="button" id="ftc-login-btn" class="btn btn-primary" style="width:100%;margin-top:10px;">Giriş Yap</button>
+                            <button type="button" id="ftc-logout-btn" class="btn btn-secondary hidden" style="width:100%;margin-top:8px;">Çıkış Yap</button>
+                            <div class="ftc-verify-status" id="ftc-verify-status"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- (29 Temmuz 2026 — Madde 3 "Kayar menüden güncel €,$,altın,gümüş,
+             BIST,Brent vs. eklensin"): tam genişlikte, sürekli kayan bir
+             piyasa şeridi. Header'ın kendisine EKLENMEDİ (header genişlik
+             bütçesi zaten dar, bkz. yukarıdaki Toplam Varlık notu) — ayrı,
+             tam genişlikte bir satır olarak header'ın hemen altına
+             yerleştirildi. İçerik tradingEngine.js renderMarketTickerStrip()
+             tarafından dolduruluyor; veri /api/v1/market-ticker'dan geliyor
+             (gerçek yfinance sembolleri: USDTRY=X, EURTRY=X, GC=F, SI=F,
+             BZ=F, XU100.IS — ana BIST100 hisse doğrulama/format akışından
+             KASITLI olarak ayrı, çünkü bunlar ".IS" son eki almamalı). -->
+        <div class="market-ticker-strip" id="market-ticker-strip" aria-label="Piyasa Kayan Şeridi">
+            <div class="market-ticker-track" id="market-ticker-track">
+                <span class="market-ticker-item market-ticker-loading">Piyasa verileri yükleniyor…</span>
+            </div>
+        </div>
+
+        <!-- MAIN LAYOUT -->
+        <div class="dashboard-body">
+            <!-- Dar ekranlarda sidebar/işlem paneli açıkken arkayı karartıp
+                 dışarı tıklayınca kapatmak için kullanılan backdrop. -->
+            <div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop"></div>
+
+            <!-- SIDEBAR: MARKET SELECTION + INDICATORS -->
+            <aside class="sidebar-panel" aria-label="Market Selection and Indicators" id="sidebar-panel">
+                <div class="panel-header">
+                    <h2>Piyasa</h2>
+                    <span class="panel-badge">BIST</span>
+                    <button type="button" class="mobile-drawer-close" id="btn-close-sidebar-drawer" aria-label="Kapat" title="Kapat">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+
+                <!-- Borsa -->
+                <!-- (30 Ağustos 2026 — "genel görünüm" sadeleştirmesi, kullanıcı
+                     isteği) NASDAQ/NYSE hiçbir zaman gerçekten çalışmıyordu
+                     (tıklanınca sadece "yakında eklenecek" uyarısı veriyordu);
+                     tek gerçek seçenek olan BIST100'ü aktif buton görünümüyle
+                     bırakmak yerine sabit bir etiketle gösteriyoruz — kafa
+                     karıştıran, işlevsiz bir "seçim" arayüzü olmasın. -->
+                <div class="form-group">
+                    <label>Borsa</label>
+                    <div class="exchange-static-badge">BIST100</div>
+                </div>
+
+                <!-- Symbol Search -->
+                <div class="form-group">
+                    <label for="watchlist-search">Sembol Ara</label>
+                    <input type="text" id="watchlist-search" class="form-input" placeholder="Sembol veya şirket adı...">
+                </div>
+
+                <!-- Watchlist: fills all remaining sidebar height now that the
+                     Geriye Dönük Test Ayarları panel below it is gone. -->
+                <div class="form-group watchlist-form-group">
+                    <label>İzleme Listesi</label>
+                    <!-- (2 Ağustos 2026 — revize planı madde 9) Bir sembol
+                         kaldırıldığında birkaç saniyeliğine görünen "Geri Al"
+                         bildirimi — silinen hisselerin "kayboluyor" hissi
+                         vermemesi için. Bkz. tradingEngine.js
+                         removeFromWatchlist() / showWatchlistUndoToast(). -->
+                    <div class="watchlist-undo-toast" id="watchlist-undo-toast" style="display:none;">
+                        <span id="watchlist-undo-text"></span>
+                        <button type="button" id="btn-watchlist-undo">Geri Al</button>
+                    </div>
+                    <div class="watchlist-container" id="watchlist-body">
+                        <!-- Populated dynamically by tradingEngine.js -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- MAIN CONTENT AREA -->
+            <main class="main-content-panel">
+                <!-- NEW: BIG TRADINGVIEW-STYLE TRADING CHART -->
+                <section class="content-card trading-chart-section" aria-label="Trading Chart">
+                    <div class="tv-chart-tabs-bar" id="tv-chart-tabs-bar" role="tablist" aria-label="Açık grafik sekmeleri">
+                        <!-- Sekmelerin kendisi tradingEngine.js tarafından #tv-chart-tabs-list
+                             içine innerHTML ile yazılıyor (her sembol değişiminde tamamen
+                             yeniden üretiliyor) — düğme bu iç sarmalayıcının DIŞINDA, bar'ın
+                             doğrudan çocuğu olarak durduğu için o yeniden üretimlerden
+                             etkilenmiyor. -->
+                        <div class="tv-chart-tabs-list" id="tv-chart-tabs-list"></div>
+                        <!-- (17-18 Temmuz 2026, sekizinci oturum) Bu düğme önceden aşağıdaki
+                             #chart-toolbar sırasındaydı; o sıra artık grafik tipi menüsü +
+                             çizim araç grupları + fiyat ölçeği + göstergeler/alarmlar
+                             düğmeleriyle birlikte 1600px genişlikte bile taşıyor ve bu da
+                             #tv-overlay-legend'daki gösterge chip'lerini varsayılan görünümde
+                             erişilemez hale getiriyordu (kaydırmadan görünmüyorlardı — bkz.
+                             üçüncü oturumdaki benzer düzeltme). Bu sekme çubuğunda genellikle
+                             çok daha fazla boş alan olduğundan (1-3 sekme açıkken), düğme
+                             buraya, sağa yaslanmış olarak taşındı — hem sıkışıklığı azaltıyor
+                             hem de "görünüm modu" anlamsal olarak sekmelerin yanında durmak
+                             daha mantıklı. -->
+                        <!-- (18 Temmuz 2026, onuncu oturum) Dual-Chart: aynı sembolü, aynı
+                             ekranda, biri çizim araçlı/tam özellikli biri de bağımsız
+                             çözünürlük seçebilen sade bir "karşılaştırma" paneli olmak üzere
+                             iki grafik yan yana gösterir. 2x2 ızgaradan farkı: orada 4 FARKLI
+                             sembol var, burada TEK sembolün iki farklı zaman dilimi/karşılaştırması. -->
+                        <button type="button" class="tv-scale-toggle-btn tv-tabsbar-append-btn" id="btn-toggle-dual-chart" title="Dual-Chart (Aynı Sembol, İki Grafik)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="16" rx="1"></rect><rect x="13" y="4" width="8" height="16" rx="1"></rect></svg>
+                        </button>
+                        <button type="button" class="tv-scale-toggle-btn tv-tabsbar-append-btn" id="btn-toggle-grid-view" title="Çoklu Grafik Düzeni (2x2 Izgara)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+                        </button>
+                        <!-- Tam Ekran: header + izleme listesi + işlem panelini gizleyip
+                             grafiği (tekli ya da dual-chart) tüm viewport'a büyütür. -->
+                        <button type="button" class="tv-scale-toggle-btn tv-tabsbar-append-btn" id="btn-toggle-fullscreen" title="Tam Ekran Grafik (Esc ile çık)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="fullscreen-icon-enter"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="fullscreen-icon-exit" style="display:none;"><path d="M8 3v3a2 2 0 0 1-2 2H3"></path><path d="M21 8h-3a2 2 0 0 1-2-2V3"></path><path d="M3 16h3a2 2 0 0 1 2 2v3"></path><path d="M16 21v-3a2 2 0 0 1 2-2h3"></path></svg>
+                        </button>
+                        <!-- (22 Temmuz 2026, on ikinci oturum, üçüncü tur; 23 Temmuz 2026,
+                             on üçüncü oturum'da Bollinger Bantları eklendi) Sinyal Anlatıcısı:
+                             üç motor mantığının (Optipulse: SMA5/SMA20 kesişimi; Backtrader:
+                             RSI+MACD; Bollinger Bantları: ortalamaya-dönüş) AL/SAT kararlarını
+                             istemci tarafında türetip grafiğin üzerine ok işareti olarak koyar;
+                             bir işarete tıklayınca "neden" açıklaması (bkz. #tv-signal-tooltip)
+                             açılır. Gerçek bir emir/backtest DEĞİL — sadece motor mantığının
+                             görsel anlatımı. -->
+                        <button type="button" class="tv-scale-toggle-btn tv-tabsbar-append-btn" id="btn-toggle-signal-explainer" title="Sinyal Anlatıcısı (AL/SAT sinyallerinin nedenini grafikte göster)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                        </button>
+                        <!-- Strateji Tekrarı ("zaman makinesi"): mevcut grafiği baştan,
+                             bar bar, oynatma kontrolleriyle (bkz. #tv-replay-bar) yeniden
+                             canlandırır — yeni veri istemez, zaten yüklü candles/indicators'ın
+                             kısaltılmış anlık görüntülerini kullanır (bkz. tradingChart.js
+                             updateReplayFrame). -->
+                        <button type="button" class="tv-scale-toggle-btn tv-tabsbar-append-btn" id="btn-toggle-replay" title="Strateji Tekrarı (Zaman Makinesi) — geçmişi bar bar izle">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        </button>
+                    </div>
+
+                    <div class="tv-toolbar">
+                        <div class="tv-symbol-block">
+                            <span id="tv-symbol-logo"></span>
+                            <span id="tv-symbol-name" class="tv-symbol-name">---</span>
+                            <!-- (30 Ağustos 2026 — "tam ekranda hisseler arası seçim"
+                                 özelliği, iki geri bildirim turu sonrası son hali)
+                                 Önce ok tuşu kısayolu eklendi (fark edilmedi), sonra
+                                 ‹/› görünür butonları eklendi ("okları da kaldır,
+                                 otomatik sıralı bir liste istiyorum" diyerek
+                                 kaldırılmasını istedi) — SON tasarım: sadece bu tek ▾
+                                 buton. Tıklanınca TÜM BIST100'ü (alfabetik sıralı)
+                                 listeleyen bir arama popover'ı açıyor (bkz.
+                                 tradingChart.js setupSymbolPickerDropdown,
+                                 TradingEngine.jumpToSymbol) — SADECE tam ekran
+                                 modunda görünür, normal görünümde zaten izleme
+                                 listesi var. Klavye ok tuşu kısayolu (cycleFullscreenSymbol)
+                                 görsel karşılığı olmadan, ekstra/görünmez bir bonus
+                                 olarak arka planda çalışmaya devam ediyor. -->
+                            <button type="button" class="tv-symbol-nav-btn" id="btn-symbol-picker" title="Sembol listesinden ara ve seç" aria-label="Sembol seç">▾</button>
+                            <div class="tv-symbol-picker-popover" id="symbol-picker-popover">
+                                <input type="text" id="symbol-picker-input" class="form-input" placeholder="Sembol veya şirket adı...">
+                                <div class="qt-symbol-search-results" id="symbol-picker-results"></div>
+                            </div>
+                            <span id="live-data-dot" class="live-data-dot" title="Simülasyon fiyatı"></span>
+                            <span id="tv-last-price" class="tv-last-price">---</span>
+                            <span id="tv-price-change" class="tv-price-change"></span>
+                        </div>
+
+                        <div class="tv-chart-type-menu" id="tv-chart-type-menu">
+                            <button type="button" class="tv-charttype-btn" id="btn-chart-type" title="Grafik Tipi">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="3" height="9"></rect><rect x="10.5" y="4" width="3" height="16"></rect><rect x="17" y="12" width="3" height="6"></rect></svg>
+                                <span id="chart-type-label">Mumlar</span>
+                                <svg class="tv-charttype-caret" width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6l8 12 8-12z"></path></svg>
+                            </button>
+                            <div class="tv-charttype-dropdown" id="chart-type-dropdown">
+                                <div class="tv-charttype-list" id="chart-type-list"></div>
+                                <div class="tv-charttype-divider"></div>
+                                <label class="tv-charttype-volume-toggle">
+                                    <input type="checkbox" id="chk-show-volume">
+                                    <span>Hacim Histogramı</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="tv-drawing-toolbar" id="chart-toolbar" role="group" aria-label="Çizim araçları"></div>
+
+                        <!-- (18 Temmuz 2026, onuncu oturum, ikinci tur) Sol dikey aracı daraltma/
+                             genişletme tutamacı — sadece 981px+ masaüstü rayı için görünür. -->
+                        <button type="button" class="tv-tool-btn" id="btn-toggle-rail" title="Araç rayını daralt/genişlet">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline id="rail-toggle-arrow" points="15 18 9 12 15 6"></polyline></svg>
+                        </button>
+
+                        <button type="button" class="tv-scale-toggle-btn" id="btn-price-scale-toggle" title="Fiyat Ölçeği: Doğrusal / Logaritmik">
+                            <span id="price-scale-mode-label">Lin</span>
+                        </button>
+
+                        <button type="button" class="tv-indicators-btn" id="btn-open-indicators" title="Göstergeler">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M18.7 8a3 3 0 1 1-3.4-3"></path><path d="M7 15l3-3 3 3 4-5"></path></svg>
+                            <span>Göstergeler</span>
+                        </button>
+
+                        <button type="button" class="tv-indicators-btn" id="btn-open-alerts" title="Fiyat Alarmları">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                            <span>Alarmlar</span>
+                            <span class="alert-count-badge" id="alert-count-badge" style="display:none;">0</span>
+                        </button>
+
+                        <div class="tv-overlay-legend" id="tv-overlay-legend"></div>
+                    </div>
+
+                    <!-- (18 Temmuz 2026, onuncu oturum, beşinci tur — "şirket temel
+                         verileri") Ana araç çubuğunun hemen altında, kendi ince satırında;
+                         sıkışık .tv-toolbar flex satırının içine eklenmedi (bu araç
+                         çubuğunun geçmişte birkaç kez taşma/kırpılma hatası yaşadığı
+                         belgelenmişti — bkz. proje dokümanı üçüncü/sekizinci oturum). Veri
+                         yfinance'ten geliyor ve gecikmeli olabilir; title tooltip'i bunu
+                         açıkça belirtiyor (bkz. Yardım modalındaki "Veri Kaynağı Notu"). -->
+                    <div class="tv-fundamentals-bar" id="tv-fundamentals-bar" title="Kaynak: yfinance — genelde birkaç dakika gecikmeli, yatırım tavsiyesi değildir.">
+                        <span id="tv-fund-pe">F/K: --</span>
+                        <span class="tv-fundamentals-sep">·</span>
+                        <span id="tv-fund-mcap">Piyasa Değeri: --</span>
+                        <span class="tv-fundamentals-sep">·</span>
+                        <span id="tv-fund-div">Temettü Verimi: --</span>
+                        <span class="tv-fundamentals-sep">·</span>
+                        <!-- (22 Temmuz 2026, on ikinci oturum, beşinci tur — hocanın isteği
+                             üzerine eklendi) 52 haftalık en düşük/en yüksek, ortalama hacim,
+                             beta ve hisse başına kazanç (EPS). -->
+                        <span id="tv-fund-range">52 Hafta: --</span>
+                        <span class="tv-fundamentals-sep">·</span>
+                        <span id="tv-fund-avgvol">Ort. Hacim: --</span>
+                        <span class="tv-fundamentals-sep">·</span>
+                        <span id="tv-fund-beta">Beta: --</span>
+                        <span class="tv-fundamentals-sep">·</span>
+                        <span id="tv-fund-eps">Hisse Başı Kazanç: --</span>
+                    </div>
+
+                    <!-- (29 Temmuz 2026 — "Çoklu Zaman Dilimi Analiz Paneli")
+                         Aktif sembolün 4 saatlik/günlük/haftalık zaman dilimlerinde
+                         SMA20/SMA50 hizasına göre trend yönünü özetler — bkz.
+                         tradingChart.js renderMTFPanel(). 4H ve haftalık, GERÇEK
+                         günlük mumlardan (state.dailyCandles) türetiliyor — ana
+                         çözünürlük seçicinin (15dk/1sa/4sa/1g/1hf) kullandığı AYNI
+                         deterministik türetim motoru (synthesizeIntradayCandles /
+                         aggregateWeeklyCandles), uydurma veri değil. -->
+                    <div class="tv-mtf-bar" id="tv-mtf-bar" title="Fiyat/SMA20/SMA50 hizasına göre her zaman diliminin trend yönü"></div>
+
+                    <!-- Zaman dilimi şeridi: TradingView'daki gerçek konumu — ana araç
+                         çubuğunun hemen altında, mum grafiğinin üstünde.
+                         (30 Ağustos 2026 — madde 4, "daha fazla çözünürlük ekle"
+                         kullanıcı seçimi) 5dk/30dk/2sa/1Ay eklendi — hepsi
+                         tradingChart.js'teki RESOLUTIONS dizisiyle birebir
+                         eşleşiyor, bkz. o yorumdaki gerçek/sentetik veri notu. -->
+                    <div class="tv-resolution-bar" id="tv-resolution-bar" role="group" aria-label="Zaman dilimi">
+                        <button type="button" class="tv-res-btn" data-res="5m">5m</button>
+                        <button type="button" class="tv-res-btn" data-res="15m">15m</button>
+                        <button type="button" class="tv-res-btn" data-res="30m">30m</button>
+                        <button type="button" class="tv-res-btn" data-res="1h">1H</button>
+                        <button type="button" class="tv-res-btn" data-res="2h">2H</button>
+                        <button type="button" class="tv-res-btn" data-res="4h">4H</button>
+                        <button type="button" class="tv-res-btn active" data-res="1d">1D</button>
+                        <button type="button" class="tv-res-btn" data-res="1w">1W</button>
+                        <button type="button" class="tv-res-btn" data-res="1mo">1Ay</button>
+                    </div>
+
+                    <!-- (22 Temmuz 2026, on ikinci oturum, üçüncü tur) Strateji Tekrarı
+                         kontrol şeridi — sadece #btn-toggle-replay ile açıldığında
+                         görünür olur, normal görünümde yer kaplamaz. -->
+                    <div class="tv-replay-bar" id="tv-replay-bar" style="display:none;" role="group" aria-label="Strateji Tekrarı Kontrolleri">
+                        <button type="button" class="tv-replay-btn" id="btn-replay-playpause" title="Oynat/Durdur">
+                            <svg id="replay-icon-play" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
+                            <svg id="replay-icon-pause" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><rect x="5" y="3" width="5" height="18"></rect><rect x="14" y="3" width="5" height="18"></rect></svg>
+                        </button>
+                        <input type="range" id="tv-replay-slider" class="tv-replay-slider" min="0" max="100" value="0" aria-label="Tekrar konumu">
+                        <span id="tv-replay-date-label" class="tv-replay-date-label">--</span>
+                        <div class="tv-replay-speed-group" role="group" aria-label="Oynatma Hızı">
+                            <button type="button" class="tv-replay-speed-btn active" data-speed="1">1x</button>
+                            <button type="button" class="tv-replay-speed-btn" data-speed="2">2x</button>
+                            <button type="button" class="tv-replay-speed-btn" data-speed="5">5x</button>
+                        </div>
+                        <span class="tv-replay-label">Strateji Tekrarı</span>
+                        <button type="button" class="tv-replay-btn tv-replay-exit-btn" id="btn-replay-exit" title="Tekrar Modundan Çık">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+
+                    <div class="tv-chart-area" id="tv-chart-area-single">
+                        <div class="tv-chart-pane tv-chart-pane-1" id="tv-chart-pane-1">
+                            <div id="tv-main-chart" class="tv-main-chart"></div>
+                            <canvas id="tv-draw-overlay" class="tv-draw-overlay"></canvas>
+                            <div id="tv-ohlc-legend" class="tv-ohlc-legend" style="display:none;"></div>
+                            <!-- (22 Temmuz 2026, on ikinci oturum, üçüncü tur) Sinyal
+                                 Anlatıcısı açıklama balonu — bir AL/SAT ok işaretine
+                                 tıklandığında (bkz. tradingChart.js handleChartSignalClick)
+                                 tıklanan noktanın yakınına konumlanır. -->
+                            <div class="tv-signal-tooltip" id="tv-signal-tooltip" style="display:none;">
+                                <div class="tv-signal-tooltip-header">
+                                    <span class="tv-signal-tooltip-badge" id="tv-signal-tooltip-badge">AL</span>
+                                    <span class="tv-signal-tooltip-date" id="tv-signal-tooltip-date">--</span>
+                                    <button type="button" class="tv-signal-tooltip-close" id="tv-signal-tooltip-close" aria-label="Kapat">×</button>
+                                </div>
+                                <div class="tv-signal-tooltip-text" id="tv-signal-tooltip-text"></div>
+                            </div>
+                        </div>
+                        <!-- Dual-Chart ikinci panel (18 Temmuz 2026, onuncu oturum): SADE ve
+                             SALT-OKUNUR — ana panelin çizim araçları / gösterge motorunu
+                             ikinci bir kopyaya çıkarmak (2x2 ızgaradaki gibi) çok daha riskli
+                             bir mimari değişiklik olurdu. Bunun yerine aynı sembolü, kendi
+                             bağımsız çözünürlük seçiciyle karşılaştırma amaçlı gösterir —
+                             ör. sol tarafta 1D + çizim araçları, sağda 1W genel görünüm. -->
+                        <div class="tv-chart-pane tv-chart-pane-2" id="tv-chart-pane-2">
+                            <div class="tv-dual-pane-header">
+                                <!-- (22 Temmuz 2026, on ikinci oturum, ikinci tur — kullanıcı isteği:
+                                     "farklı bir sembolle karşılaştırma ekle") Etikete tıklayınca gizli
+                                     input görünür hale gelip düzenlenebiliyor (bkz. tradingChart.js
+                                     setupDualSymbolPicker()) — varsayılan (dokunulmamış) durumda görsel
+                                     olarak eskisiyle birebir aynı, yalnızca artık tıklanabilir. Boş
+                                     bırakılırsa/ana sembolün kendisi yazılırsa "ayna" moduna (ana
+                                     grafiği takip etme, eski davranış) döner. -->
+                                <span class="tv-dual-pane-label" id="tv-dual-pane-label" tabindex="0" role="button" title="Karşılaştırma sembolünü değiştirmek için tıklayın">Karşılaştırma</span>
+                                <input type="text" id="tv-dual-symbol-input" class="tv-dual-symbol-input" list="tv-dual-symbol-datalist" placeholder="Sembol yaz (ör. AKBNK)..." maxlength="12" style="display:none;">
+                                <datalist id="tv-dual-symbol-datalist"></datalist>
+                                <!-- (29 Temmuz 2026 — "BIST100 Endeksi ile Göreceli Güç") Tek
+                                     tıkla, karşılaştırma sembolünü GERÇEK BIST100 endeksine
+                                     (XU100.IS, backend zaten format_ticker() ile otomatik ekliyor)
+                                     çeviren kısayol çip — bkz. tradingChart.js setDualSymbol()
+                                     içindeki SPECIAL_DUAL_SYMBOLS istisnası. -->
+                                <button type="button" class="tv-dual-index-chip" id="btn-dual-bist100" title="Karşılaştırma sembolünü BIST100 Endeksi (XU100) yap">BIST100 Endeksi</button>
+                                <!-- (18 Temmuz 2026, onuncu oturum, ikinci tur; 29 Temmuz 2026'da
+                                     genişletildi) Dual-Chart panelinin kendi overlay göstergeleri —
+                                     artık ana grafiğin tam calculateIndicators() çıktısını (kendi
+                                     BAĞIMSIZ sembol/çözünürlük kümesi üzerinde) yeniden kullanıyor,
+                                     sadece hangi çizgilerin gösterileceği hâlâ sade toggle
+                                     butonlarıyla seçiliyor — bkz. tradingChart.js refreshDualOverlays(). -->
+                                <div class="tv-dual-overlay-row" id="tv-dual-overlay-row" role="group" aria-label="Karşılaştırma grafiği göstergeleri">
+                                    <button type="button" class="tv-dual-overlay-btn" data-doverlay="sma20">SMA20</button>
+                                    <button type="button" class="tv-dual-overlay-btn" data-doverlay="sma50">SMA50</button>
+                                    <button type="button" class="tv-dual-overlay-btn" data-doverlay="ema9">EMA9</button>
+                                    <button type="button" class="tv-dual-overlay-btn" data-doverlay="ema21">EMA21</button>
+                                    <button type="button" class="tv-dual-overlay-btn" data-doverlay="bollinger">BB</button>
+                                    <button type="button" class="tv-dual-overlay-btn" data-doverlay="vwap">VWAP</button>
+                                </div>
+                                <!-- (29 Temmuz 2026 — "Dual-Chart panelinde bağımsız gösterge
+                                     desteği") Osilatör mini-panelleri — ana grafiğin oscillator
+                                     pane motoruyla AYNI buildOscillatorSeries() üretici fonksiyonu,
+                                     sadece hedef chart örneği ve konteyner farklı — bkz.
+                                     ensureDualOscillatorPane()/renderDualOscillatorPanes(). -->
+                                <div class="tv-dual-overlay-row" id="tv-dual-osc-row" role="group" aria-label="Karşılaştırma grafiği osilatörleri">
+                                    <button type="button" class="tv-dual-overlay-btn" data-dosc="rsi">RSI</button>
+                                    <button type="button" class="tv-dual-overlay-btn" data-dosc="macd">MACD</button>
+                                    <button type="button" class="tv-dual-overlay-btn" data-dosc="stoch">Stoch</button>
+                                    <button type="button" class="tv-dual-overlay-btn" data-dosc="atr">ATR</button>
+                                </div>
+                                <div class="tv-dual-res-row" id="tv-dual-res-row" role="group" aria-label="İkinci grafik zaman dilimi">
+                                    <button type="button" class="tv-res-btn" data-dres="1h">1H</button>
+                                    <button type="button" class="tv-res-btn" data-dres="4h">4H</button>
+                                    <button type="button" class="tv-res-btn" data-dres="1d">1D</button>
+                                    <button type="button" class="tv-res-btn active" data-dres="1w">1W</button>
+                                </div>
+                            </div>
+                            <!-- (29 Temmuz 2026 — "BIST100 Endeksi ile Göreceli Güç") Ana
+                                 sembol ile karşılaştırma sembolünün paylaşılan pencerede
+                                 kümülatif getiri farkı — bkz. tradingChart.js
+                                 computeRelativeStrength(). Yalnızca bir karşılaştırma sembolü
+                                 seçiliyken (ayna modu değilken) görünür. -->
+                            <div class="tv-dual-relstrength" id="tv-dual-relstrength" style="display:none;"></div>
+                            <div class="tv-dual-chart-body">
+                                <div id="tv-main-chart-2" class="tv-main-chart"></div>
+                            </div>
+                            <div class="tv-dual-subpanes-container" id="tv-dual-subpanes-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Çoklu grafik / 2x2 ızgara düzeni (17 Temmuz 2026, yedinci oturum):
+                         ana (tekli, çizim araçlı) grafiğin YANINDA değil YERİNE geçen,
+                         basitleştirilmiş 4 hücrelik bir genel bakış görünümü — her hücre
+                         kendi sembolünü/mum verisini bağımsız gösterir. Tekli grafiğin
+                         çizim/gösterge/çözünürlük altyapısını 4 kopyaya çıkarmak yerine
+                         (çok daha riskli bir mimari değişiklik) sade, salt-okunur mini
+                         grafikler kullanılıyor — bir hücreye tıklamak o sembolü ana
+                         (tekli) grafiğe "yükseltir". -->
+                    <!-- (18 Temmuz 2026, onuncu oturum, üçüncü tur) Her hücreye sade
+                         gösterge desteği eklendi — Dual-Chart Panel 2'deki "sade
+                         overlay" yaklaşımıyla aynı: hücrenin salt-okunur/kasıtlı
+                         basit mimarisi korunuyor, tam gösterge motoru eklenmiyor.
+                         (22 Temmuz 2026, on ikinci oturum) Tek aç/kapa butonu,
+                         hücre başına İKİ FARKLI gösterge arasında seçim yapılabilen
+                         bir <select>'e dönüştürüldü (Yok / SMA20+EMA9 / Bollinger).
+                         Ayrıca: anlık fiyat/değişim rozeti (.tv-grid-price-badge)
+                         ve hücre başına sade bir çizim katmanı (kenevir/trend +
+                         yatay çizgi, .tv-grid-draw-canvas + .tv-grid-draw-toolbar)
+                         eklendi — bkz. multiChartGrid.js. -->
+                    <div class="tv-grid-view" id="tv-grid-view" style="display:none;">
+                        <div class="tv-grid-cell" data-cell="0">
+                            <div class="tv-grid-cell-header">
+                                <select class="tv-grid-symbol-select" data-cell="0"></select>
+                                <span class="tv-grid-price-badge" data-cell="0">—</span>
+                                <select class="tv-grid-indicator-select" data-cell="0" title="Gösterge seç">
+                                    <option value="none">Gösterge Yok</option>
+                                    <option value="trend">SMA+EMA</option>
+                                    <option value="bollinger">BB(20,2)</option>
+                                </select>
+                                <button type="button" class="tv-grid-promote-btn" data-cell="0" title="Bu sembolü ana grafiğe yükselt">⤢</button>
+                            </div>
+                            <div class="tv-grid-cell-chart-wrap">
+                                <div class="tv-grid-cell-chart" id="tv-grid-chart-0"></div>
+                                <canvas class="tv-grid-draw-canvas" data-cell="0"></canvas>
+                                <div class="tv-grid-draw-toolbar" data-cell="0">
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="0" data-tool="trend" title="Trend çizgisi çiz">╱</button>
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="0" data-tool="hline" title="Yatay çizgi çiz">—</button>
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="0" data-tool="clear" title="Çizimleri temizle">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tv-grid-cell" data-cell="1">
+                            <div class="tv-grid-cell-header">
+                                <select class="tv-grid-symbol-select" data-cell="1"></select>
+                                <span class="tv-grid-price-badge" data-cell="1">—</span>
+                                <select class="tv-grid-indicator-select" data-cell="1" title="Gösterge seç">
+                                    <option value="none">Gösterge Yok</option>
+                                    <option value="trend">SMA+EMA</option>
+                                    <option value="bollinger">BB(20,2)</option>
+                                </select>
+                                <button type="button" class="tv-grid-promote-btn" data-cell="1" title="Bu sembolü ana grafiğe yükselt">⤢</button>
+                            </div>
+                            <div class="tv-grid-cell-chart-wrap">
+                                <div class="tv-grid-cell-chart" id="tv-grid-chart-1"></div>
+                                <canvas class="tv-grid-draw-canvas" data-cell="1"></canvas>
+                                <div class="tv-grid-draw-toolbar" data-cell="1">
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="1" data-tool="trend" title="Trend çizgisi çiz">╱</button>
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="1" data-tool="hline" title="Yatay çizgi çiz">—</button>
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="1" data-tool="clear" title="Çizimleri temizle">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tv-grid-cell" data-cell="2">
+                            <div class="tv-grid-cell-header">
+                                <select class="tv-grid-symbol-select" data-cell="2"></select>
+                                <span class="tv-grid-price-badge" data-cell="2">—</span>
+                                <select class="tv-grid-indicator-select" data-cell="2" title="Gösterge seç">
+                                    <option value="none">Gösterge Yok</option>
+                                    <option value="trend">SMA+EMA</option>
+                                    <option value="bollinger">BB(20,2)</option>
+                                </select>
+                                <button type="button" class="tv-grid-promote-btn" data-cell="2" title="Bu sembolü ana grafiğe yükselt">⤢</button>
+                            </div>
+                            <div class="tv-grid-cell-chart-wrap">
+                                <div class="tv-grid-cell-chart" id="tv-grid-chart-2"></div>
+                                <canvas class="tv-grid-draw-canvas" data-cell="2"></canvas>
+                                <div class="tv-grid-draw-toolbar" data-cell="2">
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="2" data-tool="trend" title="Trend çizgisi çiz">╱</button>
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="2" data-tool="hline" title="Yatay çizgi çiz">—</button>
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="2" data-tool="clear" title="Çizimleri temizle">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tv-grid-cell" data-cell="3">
+                            <div class="tv-grid-cell-header">
+                                <select class="tv-grid-symbol-select" data-cell="3"></select>
+                                <span class="tv-grid-price-badge" data-cell="3">—</span>
+                                <select class="tv-grid-indicator-select" data-cell="3" title="Gösterge seç">
+                                    <option value="none">Gösterge Yok</option>
+                                    <option value="trend">SMA+EMA</option>
+                                    <option value="bollinger">BB(20,2)</option>
+                                </select>
+                                <button type="button" class="tv-grid-promote-btn" data-cell="3" title="Bu sembolü ana grafiğe yükselt">⤢</button>
+                            </div>
+                            <div class="tv-grid-cell-chart-wrap">
+                                <div class="tv-grid-cell-chart" id="tv-grid-chart-3"></div>
+                                <canvas class="tv-grid-draw-canvas" data-cell="3"></canvas>
+                                <div class="tv-grid-draw-toolbar" data-cell="3">
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="3" data-tool="trend" title="Trend çizgisi çiz">╱</button>
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="3" data-tool="hline" title="Yatay çizgi çiz">—</button>
+                                    <button type="button" class="tv-grid-draw-btn" data-cell="3" data-tool="clear" title="Çizimleri temizle">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- (18 Temmuz 2026, onuncu oturum) Çoklu osilatör paneli konteyneri —
+                         her aktif gösterge (bkz. yukarıdaki #indicator-oscillator-list
+                         checkbox'ları) burada kendi .tv-osc-pane'ini JS ile alıyor
+                         (tradingChart.js → ensureOscillatorPane()/renderAllOscillatorPanes()).
+                         Panel başlığındaki ⋮⋮ tutamacı sürükle-sırala, panelin üstündeki
+                         ince çizgi sürükle-yükseklik-ayarı sağlıyor. -->
+                    <div class="tv-subpanes-container" id="tv-subpanes-container"></div>
+                </section>
+            </main>
+
+            <!-- RIGHT SIDEBAR: QUICK TRADE PANEL -->
+            <aside class="competition-panel trading-panel" aria-label="Quick Trade" id="trading-panel">
+                <div class="panel-header">
+                    <h2>Hızlı Alım Satım</h2>
+                    <span class="panel-badge">DEMO</span>
+                    <button type="button" class="mobile-drawer-close" id="btn-close-tradepanel-drawer" aria-label="Kapat" title="Kapat">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+
+                <!-- Active symbol + live price -->
+                <div class="qt-symbol-header">
+                    <span id="qt-symbol" class="qt-symbol">Sembol seçin</span>
+                    <!-- (2 Ağustos 2026 — revize planı madde 10) "Hızlı hisse
+                         seçimi bulunmuyor" — Hızlı Alım Satım panelinde sembol
+                         değiştirmek için bugüne kadar sol taraftaki İzleme
+                         Listesi'ne gitmek gerekiyordu. Artık bu simge, sol
+                         paneldeki arama ile aynı BIST100 verisi üzerinde
+                         çalışan küçük bir hızlı arama açılır penceresi açıyor
+                         (bkz. tradingEngine.js setupQuickTicketSymbolSearch()). -->
+                    <button type="button" id="btn-qt-symbol-search" class="qt-symbol-search-btn" title="Hızlı sembol ara">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </button>
+                    <div class="qt-price-row">
+                        <span id="qt-price" class="qt-price">--</span>
+                        <span id="qt-change" class="qt-change"></span>
+                    </div>
+                    <div class="qt-symbol-search-popover" id="qt-symbol-search-popover" style="display:none;">
+                        <input type="text" id="qt-symbol-search-input" class="form-input" placeholder="Sembol veya şirket adı...">
+                        <div class="qt-symbol-search-results" id="qt-symbol-search-results"></div>
+                    </div>
+                </div>
+
+                <!-- Panel tabs: trade ticket / order book / recent trades -->
+                <div class="panel-subtabs" role="tablist" aria-label="Alım-satım paneli sekmeleri">
+                    <button type="button" class="panel-subtab active" data-panel-tab="trade">Alım-Satım</button>
+                    <!-- (3 Ağustos 2026 — kullanıcı isteği: "emir ve son işlemler
+                         demo fake ise onları kaldır") Emir Defteri ve Son
+                         İşlemler sekmeleri TAMAMEN rastgele/simüle veriye
+                         dayanıyordu (gerçek BIST derinlik/tape verisi ücretsiz
+                         hiçbir kaynaktan alınamıyor — bkz. proje dokümanı
+                         "Emir Defteri Teknik Açıklama"). Kullanıcı, gerçek
+                         olmayacaksa hiç göstermemeyi tercih etti; bu yüzden bu
+                         iki sekme ve içerikleri kaldırıldı. -->
+                    <button type="button" class="panel-subtab" data-panel-tab="performance">Performans</button>
+                    <!-- (2 Ağustos 2026 — revize planı madde 12) "Örnek bir özet
+                         detay konulabilir" — referans mobil uygulama ekran
+                         görüntüsündeki Günlük/Aylık/Yıllık aralık çubuklarının
+                         basitleştirilmiş bir sürümü. -->
+                    <button type="button" class="panel-subtab" data-panel-tab="summary">Özet Detay</button>
+                </div>
+
+                <div class="panel-subtab-content active" id="panel-tab-trade">
+                    <!-- (23 Temmuz 2026 düzeltmesi) Normal Seans / VİOP ayrımı: kullanıcı
+                         geri bildirimi "elimde hisse yok ama SAT deyince direkt short
+                         açıyor" — gerçek BIST'te açığa satış ve kaldıraç yalnızca VİOP'ta
+                         mümkündür, normal (nakit) seansta mümkün değildir. Sol: Normal
+                         Seans (yalnızca elde bulunanı satabilirsiniz, kaldıraç yok).
+                         Sağ: VİOP (kaldıraç + açığa satış serbest — önceki davranış). -->
+                    <div class="market-mode-tabs" role="tablist" aria-label="Piyasa modu">
+                        <button type="button" id="qt-market-normal" class="market-mode-btn active" data-market="NORMAL">Normal Seans</button>
+                        <button type="button" id="qt-market-viop" class="market-mode-btn" data-market="VIOP" title="Vadeli İşlem ve Opsiyon Piyasası: kaldıraç ve açığa satış">VİOP</button>
+                    </div>
+                    <!-- (29 Temmuz 2026 — Madde 11: "VİOP ayrı panel") Normal Seans ve
+                         VİOP artık yalnızca kaldıraç/açığa satış davranışını değil, AŞAĞIDAKİ
+                         açık pozisyon / bekleyen OCO / son emirler listelerini de ayırıyor —
+                         iki modun pozisyonları ve geçmişi hiç karışmıyor (bkz.
+                         tradingEngine.js: portfolio.viopPositions/viopHistory/
+                         viopPendingOrders, book() yardımcı fonksiyonu). Bakiye tek bir demo
+                         hesapta ortak kalıyor, yalnızca hangi "defter"e yazıldığı ayrılıyor. -->
+                    <div class="qt-market-scope-hint">Aşağıdaki pozisyon/emir listeleri seçili moda göre değişir — Normal Seans ve VİOP birbirine hiç karışmaz.</div>
+
+                    <!-- Buy / Sell tabs -->
+                    <div class="trade-tabs">
+                        <button type="button" id="qt-tab-buy" class="trade-tab tab-buy active">AL</button>
+                        <button type="button" id="qt-tab-sell" class="trade-tab tab-sell">SAT</button>
+                    </div>
+
+                    <!-- Order type tabs -->
+                    <div class="order-type-tabs">
+                        <button type="button" id="qt-order-market" class="order-type-btn active">Piyasa</button>
+                        <button type="button" id="qt-order-limit" class="order-type-btn">Limit</button>
+                        <button type="button" id="qt-order-oco" class="order-type-btn" title="OCO: iki tetikleyiciden hangisi önce gerçekleşirse o emir çalışır, diğeri otomatik iptal olur">OCO</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="qt-qty">Miktar (Adet)</label>
+                        <input type="number" id="qt-qty" class="form-input" min="0" step="1" placeholder="0">
+                        <div class="qty-pct-row">
+                            <button type="button" class="qty-pct-btn" data-pct="25">%25</button>
+                            <button type="button" class="qty-pct-btn" data-pct="50">%50</button>
+                            <button type="button" class="qty-pct-btn" data-pct="75">%75</button>
+                            <button type="button" class="qty-pct-btn" data-pct="100">%100</button>
+                        </div>
+                    </div>
+
+                    <!-- Kaldıraç / Marj sistemi (17 Temmuz 2026, yedinci oturum): pozisyon
+                         açılırken seçilen kaldıraç, gereken teminatı (marj) düşürüyor —
+                         gerçek P&L büyüklüğü değişmiyor, sadece ne kadar bakiye kilitlendiği
+                         değişiyor. Demo/simülasyon amaçlıdır, gerçek bir marjin hesabı değildir. -->
+                    <div class="form-group" id="qt-leverage-group">
+                        <label>Kaldıraç <span class="leverage-warning-hint" id="leverage-warning-hint" style="display:none;">— yüksek kaldıraç likidasyon riskini artırır</span></label>
+                        <div class="leverage-selector" role="group" aria-label="Kaldıraç seçimi">
+                            <button type="button" class="leverage-btn active" data-leverage="1">1x</button>
+                            <button type="button" class="leverage-btn" data-leverage="2">2x</button>
+                            <button type="button" class="leverage-btn" data-leverage="5">5x</button>
+                            <button type="button" class="leverage-btn" data-leverage="10">10x</button>
+                        </div>
+                        <!-- (18 Temmuz 2026, onuncu oturum) Manuel kaldıraç: hazır butonlar
+                             1/2/5/10x ile sınırlıyken, bu alan 1-20x arası herhangi bir tam
+                             sayı değeri kabul eder — aynı state.leverage'a yazar, aynı
+                             marj/likidasyon mantığını kullanır (bkz. tradingEngine.js
+                             setupLeverageSelector()). -->
+                        <div class="leverage-custom-row">
+                            <label for="leverage-custom-input">Manuel</label>
+                            <input type="number" id="leverage-custom-input" class="form-input leverage-custom-input" min="1" max="20" step="1" placeholder="ör. 7">
+                            <span class="leverage-custom-suffix">x</span>
+                            <button type="button" class="btn-chip-action" id="btn-leverage-custom-apply">Uygula</button>
+                        </div>
+                        <!-- (18 Temmuz 2026, onuncu oturum, ikinci tur) Manuel kaldıraç için
+                             hızlı-seçim chip'leri — hazır 1/2/5/10x'in kapsamadığı ara
+                             değerlere tek tıkla ulaşmak için (bkz. tradingEngine.js
+                             setupLeverageSelector()). -->
+                        <div class="leverage-quick-chip-row" role="group" aria-label="Hızlı kaldıraç seçimi">
+                            <button type="button" class="leverage-quick-chip" data-leverage-chip="3">3x</button>
+                            <button type="button" class="leverage-quick-chip" data-leverage-chip="7">7x</button>
+                            <button type="button" class="leverage-quick-chip" data-leverage-chip="15">15x</button>
+                            <button type="button" class="leverage-quick-chip" data-leverage-chip="20">20x</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="qt-limit-row" style="display:none;">
+                        <label for="qt-limit-price">Limit Fiyat (₺)</label>
+                        <input type="number" id="qt-limit-price" class="form-input" min="0" step="0.01" placeholder="0.00">
+                    </div>
+
+                    <!-- OCO (One-Cancels-Other) bekleyen emir: fiyat iki tetikleyiciden
+                         hangisine önce ulaşırsa o yönde piyasa emri gerçekleşir, diğer
+                         tetikleyici otomatik iptal olur (17 Temmuz 2026, yedinci oturum).
+                         (18 Temmuz 2026, onuncu oturum, beşinci tur) Kart görünümüne
+                         kavuşturuldu — bkz. .qt-sltp-box ile aynı desen; alanlar artık
+                         her zaman dikey/tam genişlik (bkz. tradingEngine.js'teki
+                         setOrderType() düzeltmesi — kök neden buradaki HTML değil,
+                         satırı 'flex' yapan JS'ti). -->
+                    <div class="form-group" id="qt-oco-row" style="display:none;">
+                        <label>OCO Tetikleyicileri</label>
+                        <div class="qt-oco-box">
+                            <div class="qt-sltp-field qt-oco-field">
+                                <label for="qt-oco-upper">Üst Tetik — Kırılım AL (₺)</label>
+                                <input type="number" id="qt-oco-upper" class="form-input" min="0" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="qt-sltp-field qt-oco-field">
+                                <label for="qt-oco-lower">Alt Tetik — Kırılım SAT (₺)</label>
+                                <input type="number" id="qt-oco-lower" class="form-input" min="0" step="0.01" placeholder="0.00">
+                            </div>
+                            <p class="oco-hint">Fiyat üst tetiği yukarı kırarsa AL, alt tetiği aşağı kırarsa açığa SAT emri gerçekleşir — hangisi önce olursa diğeri otomatik iptal edilir.</p>
+                        </div>
+                    </div>
+
+                    <!-- (üçüncü tur, 18 Temmuz 2026) SL/TP bölümü yeniden düzenlendi:
+                         önceki sürümde trailing-stop kutucuğu ve yüzde alanı, SL/TP fiyat
+                         alanlarıyla AYNI flex satırına sıkışıyordu (görsel karmaşa). Artık
+                         kendi alt-bloğunda, ayrı bir satırda. Ayrıca "(OCO)" ibaresi
+                         kaldırıldı — bu bilet zaten ayrı bir "OCO" emir tipi içeriyor
+                         (qt-oco-row) ve aynı kısaltmanın iki farklı anlamda kullanılması
+                         kafa karıştırıcıydı; burası aslında pozisyona bağlı bracket
+                         (SL+TP) emri, bekleyen kırılım emri değil. -->
+                    <div class="form-group qt-sltp-group" style="margin-bottom: 12px;" id="qt-sltp-group">
+                        <label class="alert-notif-toggle-row" style="margin-top:0; text-transform:none; font-weight:500;">
+                            <input type="checkbox" id="qt-sltp-toggle">
+                            <span>Stop-Loss / Take-Profit ekle</span>
+                        </label>
+                        <div class="qt-sltp-box" id="qt-sltp-row" style="display:none;">
+                            <div class="qt-sltp-fields-row">
+                                <div class="qt-sltp-field">
+                                    <label for="qt-sl-price">Stop-Loss (₺)</label>
+                                    <input type="number" id="qt-sl-price" class="form-input" min="0" step="0.01" placeholder="0.00">
+                                </div>
+                                <div class="qt-sltp-field">
+                                    <label for="qt-tp-price">Take-Profit (₺)</label>
+                                    <input type="number" id="qt-tp-price" class="form-input" min="0" step="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <!-- (29 Temmuz 2026 — Madde 19 "SL/TP girilince otomatik risk %
+                                 ön hesabı") Risk hesaplayıcının aksine (o, %'den ADET hesaplar
+                                 ve ayrı bir onay kutusuyla açılır), bu satır her zaman görünür:
+                                 elde ne kadar adet varsa (manuel girilmiş ya da risk
+                                 hesaplayıcıdan gelmiş fark etmez) ve Stop-Loss ne kadar
+                                 uzaktaysa, o kombinasyonun bakiyenin kaçına mal olacağını anlık
+                                 gösterir — bkz. tradingEngine.js updateRiskPreview(). -->
+                            <p class="qt-risk-preview" id="qt-risk-preview" style="display:none;"></p>
+
+                            <!-- (26 Temmuz 2026, on üçüncü oturum devamı — "risk yönetimi:
+                                 pozisyon büyüklüğü hesaplayıcı") Girilen Stop-Loss fiyatını
+                                 kullanarak "bakiyemin %X'ini riske atmak istiyorum" mantığıyla
+                                 adet otomatik hesaplanır — bkz. tradingEngine.js
+                                 computeRiskBasedQty(). Stop-Loss alanına bağımlı olduğu için
+                                 kasıtlı olarak SL/TP kutusunun İÇİNDE, SL/TP fiyat alanlarının
+                                 hemen altında. -->
+                            <div class="qt-risk-calc">
+                                <label class="alert-notif-toggle-row" style="margin-top:0; text-transform:none; font-weight:500;">
+                                    <input type="checkbox" id="qt-risk-toggle">
+                                    <span>Risk bazlı miktar hesapla</span>
+                                </label>
+                                <div class="qt-risk-box" id="qt-risk-row" style="display:none;">
+                                    <div class="qt-sltp-field">
+                                        <label for="qt-risk-pct">Risk (bakiyenin %'si)</label>
+                                        <input type="number" id="qt-risk-pct" class="form-input" min="0.1" max="100" step="0.1" value="1" placeholder="örn. 1">
+                                    </div>
+                                    <!-- (29 Temmuz 2026 — "ATR bazlı akıllı Stop-Loss önerisi")
+                                         Aktif sembolün grafikte zaten hesaplanmış ATR(14) değerinden
+                                         (bkz. tradingChart.js getLastATR(), dataController.js
+                                         computeATR() — GERÇEK/hesaplanmış veri, uydurma değil) bir
+                                         SL mesafesi önerir ve Stop-Loss alanını doldurur. Butonun
+                                         kendisi risk hesaplayıcının İÇİNDE çünkü SL fiyatı, risk
+                                         bazlı adet hesaplamasının GİRDİSİ — bkz.
+                                         tradingEngine.js suggestAtrStopLoss(). -->
+                                    <button type="button" class="qt-atr-suggest-btn" id="qt-atr-suggest-btn">ATR'ye göre Stop-Loss öner (×1.5)</button>
+                                    <p class="qt-risk-hint" id="qt-risk-hint">Stop-Loss fiyatı girin — miktar otomatik hesaplanacak.</p>
+                                </div>
+                            </div>
+
+                            <div class="qt-trailing-block">
+                                <label class="alert-notif-toggle-row" style="margin-top:0; text-transform:none; font-weight:500;">
+                                    <input type="checkbox" id="qt-trailing-toggle">
+                                    <span>Sabit Stop-Loss yerine Trailing Stop kullan</span>
+                                    <!-- (29 Temmuz 2026 — Madde 12 "Trailing-Stop hangi prensiple,
+                                         sağlıklı mı?"): kod değişikliği değil, bir açıklama isteniyordu.
+                                         Native title tooltip ile mekanizma özetleniyor — gerçek mantık
+                                         checkStopLossTakeProfit()'teki trailingExtreme hesabıyla birebir
+                                         aynı (fiyat lehte ilerledikçe en iyi seviye güncellenir, stop bu
+                                         seviyeden hep aynı % kadar geride kalır, asla geri gitmez). -->
+                                    <span class="info-icon" tabindex="0" title="Trailing Stop nasıl çalışır: Fiyat lehinize hareket ettikçe stop seviyesi otomatik olarak en iyi (en yüksek/en düşük) fiyat seviyenizden belirlediğiniz yüzde kadar geride takip eder. Stop seviyesi kâr yönünde ilerledikçe kilitlenir, asla geriye (zarar yönüne) gitmez — piyasadaki standart trailing-stop mantığıyla aynıdır.">ⓘ</span>
+                                </label>
+                                <div class="qt-sltp-field qt-trailing-field" id="qt-trailing-row" style="display:none;">
+                                    <label for="qt-trailing-pct">Trailing Stop Mesafesi (%)</label>
+                                    <input type="number" id="qt-trailing-pct" class="form-input" min="0.1" step="0.1" placeholder="örn. 2.5">
+                                </div>
+                            </div>
+                            <p class="oco-hint">Emir gerçekleştiğinde pozisyona otomatik olarak bağlanır; fiyat Stop-Loss (veya Trailing Stop mesafesi) ya da Take-Profit seviyesine ulaştığında pozisyon kapatılır.</p>
+                        </div>
+                    </div>
+
+                    <div class="qt-estimate-row">
+                        <span>İşlem Büyüklüğü (Notional)</span>
+                        <span id="qt-est-notional">--</span>
+                    </div>
+                    <div class="qt-estimate-row">
+                        <span>Gereken Teminat (Marj)</span>
+                        <span id="qt-est-cost">--</span>
+                    </div>
+
+                    <!-- (23 Temmuz 2026 düzeltmesi) Kullanıcı geri bildirimi: yetersiz
+                         bakiye / kaldıraç uyuşmazlığı gibi emir-reddi mesajları önceden
+                         SADECE alt bilgi çubuğundaki ("footer-status-text") küçük gri
+                         yazıyla gösteriliyordu — kullanıcının dikkati o an tam olarak
+                         AL/SAT butonundayken bu küçük, uzak yazı fark edilmiyordu. Bu
+                         kutu, emir biletinin TAM İÇİNDE, gönder butonunun hemen üstünde,
+                         göze çarpan bir renkle aynı mesajı ayrıca gösteriyor (bkz.
+                         tradingEngine.js showTicketAlert()). -->
+                    <div class="qt-ticket-alert" id="qt-ticket-alert" style="display:none;" role="alert"></div>
+
+                    <!-- (9 Ağustos 2026 — piyasa kapalıyken/admin durdurunca emir
+                         engelleme) qt-ticket-alert'ten FARKLI: bu, geçici bir hata
+                         mesajı değil, "şu an emir gönderilemez" durumunu KALICI
+                         olarak gösteren bir uyarı — updateTradeAvailabilityUI()
+                         tarafından yönetilir, otomatik gizlenmez (zamanlayıcısı yok). -->
+                    <div class="qt-ticket-alert qt-alert-info" id="qt-trading-status-notice" style="display:none;" role="status"></div>
+
+                    <button type="button" id="qt-submit" class="btn-trade-submit btn-buy">AL (BUY)</button>
+                </div>
+
+                <!-- Portfolio performance analytics -->
+                <div class="panel-subtab-content" id="panel-tab-performance">
+                    <div class="perf-stats-grid">
+                        <div class="perf-stat">
+                            <span class="perf-stat-label">Toplam K/Z</span>
+                            <span class="perf-stat-val" id="perf-total-pnl">--</span>
+                        </div>
+                        <div class="perf-stat">
+                            <span class="perf-stat-label">Kazanma Oranı</span>
+                            <span class="perf-stat-val" id="perf-win-rate">--</span>
+                        </div>
+                        <div class="perf-stat">
+                            <span class="perf-stat-label">İşlem Sayısı</span>
+                            <span class="perf-stat-val" id="perf-trade-count">--</span>
+                        </div>
+                        <div class="perf-stat">
+                            <span class="perf-stat-label">Profit Factor</span>
+                            <span class="perf-stat-val" id="perf-profit-factor">--</span>
+                        </div>
+                        <!-- (23 Temmuz 2026, on üçüncü oturum — "motoru güçlendirme")
+                             Sharpe Oranı ve Maks. Drawdown: gerçek kapanmış işlem
+                             geçmişinden hesaplanır (tradingEngine.js →
+                             computePerformanceStats), sabit/uydurma değer değil. -->
+                        <div class="perf-stat">
+                            <span class="perf-stat-label">Sharpe Oranı</span>
+                            <span class="perf-stat-val" id="perf-sharpe-ratio">--</span>
+                        </div>
+                        <div class="perf-stat">
+                            <span class="perf-stat-label">Maks. Drawdown</span>
+                            <span class="perf-stat-val" id="perf-max-drawdown">--</span>
+                        </div>
+                        <div class="perf-stat">
+                            <span class="perf-stat-label">En İyi İşlem</span>
+                            <span class="perf-stat-val profit-text" id="perf-best-trade">--</span>
+                        </div>
+                        <div class="perf-stat">
+                            <span class="perf-stat-label">En Kötü İşlem</span>
+                            <span class="perf-stat-val loss-text" id="perf-worst-trade">--</span>
+                        </div>
+                    </div>
+
+                    <div class="perf-equity-wrap">
+                        <div class="perf-equity-header">
+                            <span>Özkaynak Eğrisi (canlı)</span>
+                            <span id="perf-equity-current">--</span>
+                        </div>
+                        <canvas id="perf-equity-canvas" class="perf-equity-canvas"></canvas>
+                    </div>
+
+                    <div class="perf-symbol-breakdown">
+                        <div class="perf-equity-header"><span>Sembol Bazında K/Z</span></div>
+                        <div id="perf-symbol-list" class="perf-symbol-list"></div>
+                    </div>
+                </div>
+
+                <!-- (2 Ağustos 2026 — revize planı madde 12) Özet Detay:
+                     aktif sembolün Günlük/Aylık/Yıllık fiyat aralığı içindeki
+                     konumu — bkz. tradingEngine.js renderSummaryDetailTab(),
+                     tradingChart.js getDailyRangeSummary(). -->
+                <div class="panel-subtab-content" id="panel-tab-summary">
+                    <div id="qt-summary-detail-body" class="qt-summary-detail-body">
+                        <div class="qt-summary-empty">Sembol seçin.</div>
+                    </div>
+                </div>
+
+                <!-- Account summary (balance now lives in the header only) -->
+                <div class="qt-account-summary qt-account-summary-2col">
+                    <div class="acct-item">
+                        <span class="acct-label">Özkaynak</span>
+                        <span class="acct-value" id="qt-equity">--</span>
+                    </div>
+                    <div class="acct-item">
+                        <span class="acct-label">Açık K/Z</span>
+                        <span class="acct-value" id="qt-openpnl">--</span>
+                    </div>
+                    <div class="acct-item">
+                        <span class="acct-label">Kullanılan Marj</span>
+                        <span class="acct-value" id="qt-used-margin">--</span>
+                    </div>
+                    <div class="acct-item">
+                        <span class="acct-label">Marj Seviyesi</span>
+                        <span class="acct-value" id="qt-margin-level">--</span>
+                    </div>
+                </div>
+
+                <!-- (26 Temmuz 2026, on üçüncü oturum devamı — "risk yönetimi: portföy
+                     genel risk uyarısı") Tüm açık pozisyonlardaki TANIMLI risk (Stop-Loss
+                     varsa fiyat farkı × adet; yoksa yatırılan teminat) özkaynağın belirli
+                     bir yüzdesini aşınca görünür — bkz. tradingEngine.js
+                     renderPortfolioRiskWarning(). Varsayılan olarak gizli. -->
+                <div class="qt-portfolio-risk-warning" id="qt-portfolio-risk-warning" style="display:none;" role="alert"></div>
+
+                <!-- Open positions -->
+                <!-- (23 Temmuz 2026, on üçüncü oturum devamı) Önceden 6 sütunlu bir
+                     <table> idi; ticket panelinin dar genişliğinde bu, yatay kaydırma
+                     gerektiriyor ve K/Z gibi değerlerin ("-" işareti üstte, rakam
+                     altta kalacak şekilde) satır kırılmasına yol açıyordu. Kullanıcı
+                     ekran görüntüsüyle bunu bildirdi ("yukarıda sayı aşağıda kalmış").
+                     Çözüm: tablo yerine, her pozisyonun kendi kartı olduğu, dikey
+                     istiflenen (üstte sembol+yön+K/Z, altta adet/ort.fiyat+butonlar)
+                     bir liste — bkz. renderPositions() (tradingEngine.js) ve
+                     .pos-card kuralları (styles.css). Yatay kaydırma tamamen ortadan
+                     kalkıyor, K/Z değeri artık tek satırda (white-space: nowrap). -->
+                <!-- (29 Temmuz 2026 — Madde 11) Bu blok yalnızca Normal Seans
+                     modundaki (spot) defteri gösterir; VİOP defteri aşağıda ayrı,
+                     paralel bir blokta (id'lerin sonunda "-viop"). Görünürlük
+                     setupMarketModeSelector()'daki toggle ile kontrol ediliyor —
+                     veriler her zaman ikisine de yazılıyor, yalnızca hangisinin
+                     görüneceği moda göre değişiyor. -->
+                <div id="qt-list-scope-spot">
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label>Açık Pozisyonlar (Spot)</label>
+                        <div class="table-container qt-mini-table">
+                            <div id="qt-positions-body" class="qt-card-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- Bekleyen OCO emirleri (17 Temmuz 2026, yedinci oturum;
+                         23 Temmuz 2026 on üçüncü oturum devamında kart listesine çevrildi) -->
+                    <div class="form-group" style="margin-top: 16px;" id="qt-pending-oco-group">
+                        <label>Bekleyen Emirler — OCO/Limit (Spot)</label>
+                        <div class="table-container qt-mini-table">
+                            <div id="qt-pending-oco-body" class="qt-card-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- Recent orders -->
+                    <div class="form-group" style="margin-top: 16px;">
+                        <div class="form-group-label-row">
+                            <label style="margin-bottom:0;">Son Emirler (Spot)</label>
+                            <button type="button" class="btn-csv-export" id="btn-export-history-csv" title="Tüm işlem geçmişini (Spot + VİOP) markalı Excel (.xlsx) olarak indir">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                Excel
+                            </button>
+                        </div>
+                        <div class="table-container qt-mini-table">
+                            <div id="qt-orders-body" class="qt-card-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- (29 Temmuz 2026 — Madde 11) VİOP'a ait, Spot'la hiç karışmayan
+                     ayrı pozisyon/OCO/emir defteri. Yapısal olarak yukarıdakiyle
+                     birebir aynı, sadece kendi id'leri ve kendi verisiyle. -->
+                <div id="qt-list-scope-viop" style="display:none;">
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label>Açık Pozisyonlar (VİOP)</label>
+                        <div class="table-container qt-mini-table">
+                            <div id="qt-positions-body-viop" class="qt-card-list"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 16px;" id="qt-pending-oco-group-viop">
+                        <label>Bekleyen Emirler — OCO/Limit (VİOP)</label>
+                        <div class="table-container qt-mini-table">
+                            <div id="qt-pending-oco-body-viop" class="qt-card-list"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 16px;">
+                        <div class="form-group-label-row">
+                            <label style="margin-bottom:0;">Son Emirler (VİOP)</label>
+                        </div>
+                        <div class="table-container qt-mini-table">
+                            <div id="qt-orders-body-viop" class="qt-card-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- (6 Ağustos 2026 — "portföy sıfırlama artık sadece admin yapabilsin")
+                     Yarışmacının kendi portföyünü sıfırlayabildiği "Portföyü Sıfırla"
+                     butonu BİLEREK kaldırıldı. Sıfırlama artık SADECE admin panelinden,
+                     finteclubBridge.js'in dinlediği komut kanalı üzerinden yapılabiliyor
+                     (bkz. tradingEngine.js: window.TradingEngine.resetPortfolio() hâlâ
+                     mevcut ve donmuş genel API'de duruyor — sadece buraya bağlı UI
+                     tetikleyicisi kaldırıldı, fonksiyonun kendisi admin komutu için
+                     gerekli). -->
+                <div class="qt-disclaimer">Bu bir simülasyondur (sandbox / non-live). Gerçek emir gönderilmez.</div>
+            </aside>
+        </div>
+
+        <!-- FOOTER STATUS BAR -->
+        <footer class="dashboard-footer">
+            <div class="footer-left">
+                <span class="indicator-glow"></span>
+                <span id="footer-status-text">System status: Ready</span>
+            </div>
+            <div class="footer-center">
+                <span>OptiPulseLab Quantitative Simulation Engine</span>
+            </div>
+            <div class="footer-right">
+                <span>v1.0.0-Beta</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Indicator Picker Modal (TradingView-style searchable indicator list) -->
+    <div class="indicator-modal-backdrop" id="indicator-modal-backdrop">
+        <div class="indicator-modal" role="dialog" aria-modal="true" aria-label="Göstergeler">
+            <div class="indicator-modal-header">
+                <span>Göstergeler</span>
+                <button type="button" class="indicator-modal-close" id="btn-close-indicators" aria-label="Kapat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="indicator-modal-search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="indicator-search-input" placeholder="Gösterge ara...">
+            </div>
+            <div class="indicator-modal-body">
+                <div class="indicator-modal-toolbar">
+                    <button type="button" class="btn-chip-action" id="btn-copy-indicators" title="Bu sembolün gösterge ayarlarını kopyala">Ayarları Kopyala</button>
+                    <button type="button" class="btn-chip-action" id="btn-paste-indicators" title="Kopyalanan gösterge ayarlarını yapıştır" disabled>Yapıştır</button>
+                </div>
+
+                <div class="indicator-modal-category" data-category-label="ana grafik overlay trend">
+                    <div class="indicator-subgroup-label">Ana Grafik (Overlay)</div>
+                    <div class="indicator-checkbox-group">
+                        <label class="checkbox-label indicator-search-item" data-search="sma 20 simple moving average">
+                            <input type="checkbox" id="chk-sma20" checked>
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">SMA 20 (Mavi)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="sma 50 simple moving average">
+                            <input type="checkbox" id="chk-sma50">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">SMA 50 (Mor)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="sma 200 simple moving average">
+                            <input type="checkbox" id="chk-sma200">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">SMA 200 (Kırmızı)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="ema 9 exponential moving average">
+                            <input type="checkbox" id="chk-ema9">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">EMA 9 (Turkuaz)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="ema 21 exponential moving average">
+                            <input type="checkbox" id="chk-ema21">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">EMA 21 (Turuncu)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="bollinger bands volatilite">
+                            <input type="checkbox" id="chk-bollinger" checked>
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">Bollinger Bands (20, 2)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="vwap volume weighted average price">
+                            <input type="checkbox" id="chk-vwap">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">VWAP (Teal)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="wma weighted moving average">
+                            <input type="checkbox" id="chk-wma20">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">WMA 20 (Pembe)</span>
+                        </label>
+                        <!-- (üçüncü tur, 18 Temmuz 2026) Ek teknik göstergeler: Ichimoku Cloud,
+                             Parabolic SAR, Pivot Points — bkz. dataController.js compute* fonksiyonları
+                             ve tradingChart.js renderOverlays() için ilgili yorumlar. Bunlar bilgilendirici
+                             göstergelerdir, alım/satım sinyali değildir. -->
+                        <label class="checkbox-label indicator-search-item" data-search="ichimoku cloud kumo tenkan kijun senkou chikou">
+                            <input type="checkbox" id="chk-ichimoku">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">Ichimoku Cloud</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="parabolic sar stop and reverse">
+                            <input type="checkbox" id="chk-psar">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">Parabolic SAR</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="pivot points destek direnç floor trader">
+                            <input type="checkbox" id="chk-pivot">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">Pivot Points</span>
+                        </label>
+                        <!-- (dördüncü tur, 18 Temmuz 2026) Gösterge çeşitliliği devamı —
+                             bkz. arayuz-iyilestirme-onerileri.md Madde 3. -->
+                        <label class="checkbox-label indicator-search-item" data-search="supertrend super trend atr trend takip">
+                            <input type="checkbox" id="chk-supertrend">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">SuperTrend</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="keltner channels kanal volatilite">
+                            <input type="checkbox" id="chk-keltner">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">Keltner Kanalları</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="donchian channels kanal kırılım breakout">
+                            <input type="checkbox" id="chk-donchian">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">Donchian Kanalları</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- (18 Temmuz 2026, onuncu oturum) Osilatör paneli artık ÇOKLU seçim —
+                     birden fazla gösterge aynı anda alt-panel olarak açılabiliyor, her
+                     panelin başlığındaki ⋮⋮ tutamacından sürükleyerek SIRALANABİLİYOR
+                     (bkz. tradingChart.js setupSubpanesContainer()/renderAllOscillatorPanes()).
+                     Williams %R yeni eklendi (çeşitlendirme). -->
+                <div class="indicator-modal-category" data-category-label="osilatör alt panel momentum">
+                    <div class="indicator-subgroup-label">Osilatör Paneli (Alt Grafik — birden fazla seçilebilir, sürükleyerek sıralanabilir)</div>
+                    <div class="indicator-checkbox-group" id="indicator-oscillator-list">
+                        <label class="checkbox-label indicator-search-item" data-search="rsi relative strength index momentum">
+                            <input type="checkbox" class="osc-checkbox" data-osc="rsi" checked>
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">RSI (14)</span>
+                        </label>
+                        <!-- (2 Ağustos 2026 — revize planı madde 7) Kullanıcı geri
+                             bildirimi: "rsi 14 ama isteyen kullanıcı rsı 20 ayarlamak
+                             isteyebilir... iki farklı değerde rsi değerlerini
+                             görebilmek için güzel bir seçenek olabilir". Farklı bir
+                             periyotla İKİNCİ bir RSI paneli eklenebiliyor; eklenen
+                             panel kendi başlığındaki × ile normal şekilde kapatılır. -->
+                        <div class="osc-custom-period-row" data-search="rsi periyot custom özel">
+                            <span class="osc-custom-period-label">Farklı periyotlu RSI ekle:</span>
+                            <input type="number" id="rsi-custom-period-input" class="form-input osc-custom-period-input" min="2" max="200" value="20">
+                            <button type="button" id="btn-add-custom-rsi" class="btn-chip-action">Ekle</button>
+                        </div>
+                        <label class="checkbox-label indicator-search-item" data-search="macd moving average convergence divergence">
+                            <input type="checkbox" class="osc-checkbox" data-osc="macd">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">MACD (12, 26, 9)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="stochastic momentum">
+                            <input type="checkbox" class="osc-checkbox" data-osc="stoch">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">Stochastic (14, 3)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="atr average true range volatilite">
+                            <input type="checkbox" class="osc-checkbox" data-osc="atr">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">ATR (14)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="adx average directional index trend">
+                            <input type="checkbox" class="osc-checkbox" data-osc="adx">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">ADX (14)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="obv on balance volume hacim">
+                            <input type="checkbox" class="osc-checkbox" data-osc="obv">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">OBV</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="cci commodity channel index momentum">
+                            <input type="checkbox" class="osc-checkbox" data-osc="cci">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">CCI (20)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="mfi money flow index hacim momentum">
+                            <input type="checkbox" class="osc-checkbox" data-osc="mfi">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">MFI (14)</span>
+                        </label>
+                        <label class="checkbox-label indicator-search-item" data-search="williams %r williams r momentum">
+                            <input type="checkbox" class="osc-checkbox" data-osc="willr">
+                            <span class="custom-checkbox"></span>
+                            <span class="checkbox-text">Williams %R (14)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="indicator-modal-empty" id="indicator-modal-empty" style="display:none;">Eşleşen gösterge bulunamadı.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Price Alerts modal -->
+    <div class="indicator-modal-backdrop" id="alerts-modal-backdrop">
+        <div class="indicator-modal" role="dialog" aria-modal="true" aria-label="Fiyat Alarmları">
+            <div class="indicator-modal-header">
+                <h3>Fiyat Alarmları</h3>
+                <button type="button" class="indicator-modal-close" id="btn-close-alerts" aria-label="Kapat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="indicator-modal-body">
+                <div class="indicator-modal-category" data-category-label="yeni alarm ekle">
+                    <div class="indicator-subgroup-label">Yeni Alarm</div>
+                    <div class="alert-form-row">
+                        <select id="alert-symbol-select" class="form-input alert-symbol-select" aria-label="Sembol"></select>
+                        <select id="alert-condition-select" class="form-input alert-condition-select" aria-label="Koşul">
+                            <option value="above">Üzerine çıkınca</option>
+                            <option value="below">Altına inince</option>
+                        </select>
+                        <input type="number" id="alert-target-price" class="form-input alert-target-input" min="0" step="0.01" placeholder="Hedef fiyat (₺)" aria-label="Hedef fiyat">
+                        <button type="button" class="btn-chip-action alert-add-btn" id="btn-add-alert">Ekle</button>
+                    </div>
+                    <label class="alert-notif-toggle-row" id="alert-notif-toggle-row" style="display:none;">
+                        <input type="checkbox" id="alert-notif-checkbox">
+                        <span>Tarayıcı bildirimi ile de uyar</span>
+                    </label>
+                </div>
+
+                <div class="indicator-modal-category" data-category-label="aktif alarmlar">
+                    <div class="indicator-subgroup-label">Aktif Alarmlar</div>
+                    <div class="alerts-list" id="active-alerts-list"></div>
+                    <div class="alerts-empty" id="alerts-empty-msg">Henüz alarm oluşturulmadı.</div>
+                </div>
+
+                <div class="indicator-modal-category" data-category-label="tetiklenen alarmlar" id="triggered-alerts-section" style="display:none;">
+                    <div class="indicator-subgroup-label">Tetiklenen Alarmlar</div>
+                    <div class="alerts-list" id="triggered-alerts-list"></div>
+                </div>
+
+                <!-- (29 Temmuz 2026 — Madde 20 "Kullanıcının sadece belirli bir
+                     fiyata değil, örneğin RSI 30'u aşağı kestiğinde veya fiyatı
+                     EMA 20'ye dokunduğunda bildirim verebileceği bir uyarı
+                     sistemi"): fiyat alarmlarından AYRI bir bölüm, çünkü kontrol
+                     mekanizması farklı — gösterge alarmları YALNIZCA o an
+                     grafikte açık olan sembol için çalışabiliyor (RSI/EMA
+                     hesaplaması geçmiş mum verisi gerektiriyor, bu sadece aktif
+                     grafik sembolünde yükleniyor), bu yüzden sembol serbest
+                     seçilemiyor — aktif sembol otomatik gösteriliyor. -->
+                <div class="indicator-modal-category" data-category-label="yeni gösterge alarmı">
+                    <div class="indicator-subgroup-label">
+                        Yeni Gösterge Alarmı
+                        <span class="info-icon" tabindex="0" title="Gösterge alarmları yalnızca o an grafikte açık olan sembol için kontrol edilebilir — RSI/EMA hesabı geçmiş mum verisi gerektiriyor ve bu yalnızca aktif grafik sembolünde yükleniyor. Farklı bir sembolde alarm kurmak için önce o sembolü grafikte açın, sonra bu pencereyi tekrar açın.">ⓘ</span>
+                    </div>
+                    <div class="alert-form-row">
+                        <span class="ind-alert-active-symbol" id="ind-alert-active-symbol">Aktif sembol: --</span>
+                        <select id="ind-alert-type-select" class="form-input alert-condition-select" aria-label="Gösterge koşulu">
+                            <option value="RSI_CROSS_BELOW">RSI aşağı kesişim</option>
+                            <option value="RSI_CROSS_ABOVE">RSI yukarı kesişim</option>
+                            <option value="EMA20_TOUCH">Fiyat EMA(20)'ye dokunma</option>
+                        </select>
+                        <input type="number" id="ind-alert-threshold" class="form-input alert-target-input" min="1" max="99" step="1" placeholder="Eşik (ör. 30)" value="30">
+                        <button type="button" class="btn-chip-action alert-add-btn" id="btn-add-indicator-alert">Ekle</button>
+                    </div>
+                </div>
+
+                <div class="indicator-modal-category" data-category-label="aktif gösterge alarmları">
+                    <div class="indicator-subgroup-label">Aktif Gösterge Alarmları</div>
+                    <div class="alerts-list" id="active-indicator-alerts-list"></div>
+                    <div class="alerts-empty" id="indicator-alerts-empty-msg">Henüz gösterge alarmı oluşturulmadı.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stop-Loss / Take-Profit editor modal (for an existing open position) -->
+    <div class="indicator-modal-backdrop" id="sltp-modal-backdrop">
+        <div class="indicator-modal" role="dialog" aria-modal="true" aria-label="Stop-Loss / Take-Profit">
+            <div class="indicator-modal-header">
+                <h3>Stop-Loss / Take-Profit — <span id="sltp-modal-symbol">---</span></h3>
+                <button type="button" class="indicator-modal-close" id="btn-close-sltp" aria-label="Kapat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="indicator-modal-body">
+                <div class="sltp-modal-info" id="sltp-modal-info">--</div>
+                <div class="indicator-modal-category" data-category-label="sl tp">
+                    <div class="qt-sltp-fields-row">
+                        <div class="qt-sltp-field">
+                            <label for="sltp-modal-sl">Stop-Loss (₺)</label>
+                            <input type="number" id="sltp-modal-sl" class="form-input" min="0" step="0.01" placeholder="0.00">
+                        </div>
+                        <div class="qt-sltp-field">
+                            <label for="sltp-modal-tp">Take-Profit (₺)</label>
+                            <input type="number" id="sltp-modal-tp" class="form-input" min="0" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="indicator-modal-toolbar" style="margin-top:10px;">
+                        <button type="button" class="btn-chip-action" id="btn-sltp-clear">Temizle</button>
+                        <button type="button" class="btn-chip-action" id="btn-sltp-save">Kaydet</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- (6 Ağustos 2026 — Ali İhsan Hocam'ın isteği) Alım/satım onay penceresi —
+         AL/SAT tuşuna basınca emir DOĞRUDAN gerçekleşmez, önce bu modal emrin
+         özetini (adet, sembol, fiyat, kaldıraç, gereken teminat) gösterir ve
+         kullanıcı "Onayla" demeden hiçbir pozisyon/bakiye değişmez. Hem Spot
+         hem VİOP, hem Piyasa hem Limit emir tipleri için kullanılır. -->
+    <div class="indicator-modal-backdrop" id="order-confirm-modal-backdrop">
+        <div class="indicator-modal" role="dialog" aria-modal="true" aria-label="Emir Onayı">
+            <div class="indicator-modal-header">
+                <h3 id="order-confirm-title">Emir Onayı</h3>
+                <button type="button" class="indicator-modal-close" id="btn-close-order-confirm" aria-label="Kapat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="indicator-modal-body">
+                <div class="indicator-modal-category" data-category-label="özet">
+                    <p class="order-confirm-question" id="order-confirm-question">--</p>
+                    <div class="order-confirm-summary" id="order-confirm-summary"></div>
+                    <div class="indicator-modal-toolbar" style="margin-top:14px;">
+                        <button type="button" class="btn-chip-action" id="btn-order-confirm-cancel">Vazgeç</button>
+                        <button type="button" class="btn-chip-action btn-order-confirm-submit" id="btn-order-confirm-submit">Onayla</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- (2 Ağustos 2026 — revize planı madde 8) Grafik notu (metin çizim aracı) modali —
+         eskiden çıplak window.prompt() kullanılıyordu, uygulamanın geri kalanıyla
+         tutarlı olması için diğer modallerle (SLTP, Alarm, vb.) aynı desende
+         özel bir modal'a taşındı. -->
+    <div class="indicator-modal-backdrop" id="chart-note-modal-backdrop">
+        <div class="indicator-modal" role="dialog" aria-modal="true" aria-label="Grafik Notu">
+            <div class="indicator-modal-header">
+                <h3>Grafik Notu</h3>
+                <button type="button" class="indicator-modal-close" id="btn-close-chart-note" aria-label="Kapat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="indicator-modal-body">
+                <div class="indicator-modal-category" data-category-label="not">
+                    <div class="qt-sltp-field">
+                        <label for="chart-note-input">Grafiğe eklenecek not</label>
+                        <input type="text" id="chart-note-input" class="form-input" maxlength="120" placeholder="Örn: Direnç bölgesi">
+                    </div>
+                    <div class="indicator-modal-toolbar" style="margin-top:10px;">
+                        <button type="button" class="btn-chip-action" id="btn-chart-note-cancel">İptal</button>
+                        <button type="button" class="btn-chip-action" id="btn-chart-note-save">Ekle</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BIST100 Heatmap modal -->
+    <div class="indicator-modal-backdrop" id="heatmap-modal-backdrop">
+        <div class="indicator-modal heatmap-modal" role="dialog" aria-modal="true" aria-label="BIST100 Isı Haritası">
+            <div class="indicator-modal-header">
+                <h3>BIST100 Isı Haritası</h3>
+                <div class="heatmap-header-right">
+                    <div class="heatmap-groupby-toggle" role="group" aria-label="Isı haritası gruplama">
+                        <button type="button" class="heatmap-groupby-btn active" data-groupby="sector">Sektöre Göre</button>
+                        <button type="button" class="heatmap-groupby-btn" data-groupby="flat">Değişime Göre</button>
+                    </div>
+                    <span class="heatmap-legend">
+                        <span class="heatmap-legend-swatch heatmap-legend-neg"></span>Düşüş
+                        <span class="heatmap-legend-swatch heatmap-legend-pos"></span>Yükseliş
+                    </span>
+                    <button type="button" class="indicator-modal-close" id="btn-close-heatmap" aria-label="Kapat">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="indicator-modal-body heatmap-body">
+                <div class="heatmap-content" id="heatmap-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Komut Paleti (18 Temmuz 2026, dördüncü tur — Ctrl+K / "/" ile açılır.
+         Sembol arama + hızlı işlem menüsünü tek pencerede birleştirir. -->
+    <div class="indicator-modal-backdrop" id="command-palette-backdrop">
+        <div class="indicator-modal command-palette-modal" role="dialog" aria-modal="true" aria-label="Komut Paleti">
+            <div class="cmdp-search-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cmdp-search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="command-palette-input" class="cmdp-input" placeholder="Sembol ara veya bir komut yazın…" autocomplete="off" spellcheck="false">
+                <button type="button" class="indicator-modal-close" id="btn-close-command-palette" aria-label="Kapat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="cmdp-results" id="command-palette-results"></div>
+        </div>
+    </div>
+
+    <!-- Keyboard shortcuts help modal -->
+    <div class="indicator-modal-backdrop" id="shortcuts-modal-backdrop">
+        <div class="indicator-modal" role="dialog" aria-modal="true" aria-label="Klavye Kısayolları">
+            <div class="indicator-modal-header">
+                <h3>Klavye Kısayolları</h3>
+                <button type="button" class="indicator-modal-close" id="btn-close-shortcuts" aria-label="Kapat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="indicator-modal-body">
+                <div class="indicator-modal-category" data-category-label="genel">
+                    <div class="indicator-subgroup-label">Genel</div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>Ctrl</kbd>+<kbd>K</kbd> veya <kbd>/</kbd></span><span class="shortcut-desc">Komut paletini aç (sembol ara / hızlı işlem)</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>1</kbd>–<kbd>9</kbd></span><span class="shortcut-desc">İlgili grafik sekmesine geç</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>[</kbd> / <kbd>]</kbd></span><span class="shortcut-desc">Önceki / sonraki grafik sekmesi</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>Esc</kbd></span><span class="shortcut-desc">Açık pencereyi / tam ekranı kapat</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>?</kbd></span><span class="shortcut-desc">Bu pencereyi aç/kapat</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>F</kbd></span><span class="shortcut-desc">Tam ekran grafik modunu aç/kapat</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>T</kbd></span><span class="shortcut-desc">Koyu / Açık temayı değiştir</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys">Tanıtım Turu</span><span class="shortcut-desc">☰ menüsündeki düğmeyle özellikleri gezen sunum turunu başlat</span></div>
+                </div>
+                <div class="indicator-modal-category" data-category-label="panel">
+                    <div class="indicator-subgroup-label">Panel</div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>G</kbd></span><span class="shortcut-desc">Göstergeler penceresini aç</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>A</kbd></span><span class="shortcut-desc">Fiyat Alarmları penceresini aç</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>H</kbd></span><span class="shortcut-desc">BIST100 Isı Haritasını aç</span></div>
+                </div>
+                <div class="indicator-modal-category" data-category-label="alim satim">
+                    <div class="indicator-subgroup-label">Alım-Satım</div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>B</kbd></span><span class="shortcut-desc">Yönü AL olarak seç</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>S</kbd></span><span class="shortcut-desc">Yönü SAT olarak seç</span></div>
+                </div>
+                <div class="indicator-modal-category" data-category-label="cizim">
+                    <div class="indicator-subgroup-label">Çizim Araçları</div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>Ctrl</kbd>+<kbd>Z</kbd></span><span class="shortcut-desc">Son çizimi geri al</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>Ctrl</kbd>+<kbd>C</kbd></span><span class="shortcut-desc">Seçili çizimi kopyala</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>Ctrl</kbd>+<kbd>V</kbd></span><span class="shortcut-desc">Çizimi yapıştır</span></div>
+                    <div class="shortcut-row"><span class="shortcut-keys"><kbd>Delete</kbd></span><span class="shortcut-desc">Seçili çizimi sil</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Yardım / Hakkında modalı (18 Temmuz 2026, dokuzuncu oturum) -->
+    <div class="indicator-modal-backdrop" id="help-modal-backdrop">
+        <div class="indicator-modal" role="dialog" aria-modal="true" aria-label="Yardım / Hakkında">
+            <div class="indicator-modal-header">
+                <h3>Yardım / Hakkında</h3>
+                <button type="button" class="indicator-modal-close" id="btn-close-help" aria-label="Kapat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="indicator-modal-body">
+                <div class="indicator-modal-category">
+                    <div class="indicator-subgroup-label">Bu Uygulama Nedir?</div>
+                    <p class="help-text">
+                        OptiPulseLab, BIST hisseleri üzerinde <strong>demo/simülasyon</strong> amaçlı bir alım-satım
+                        terminalidir. Grafikler ve fiyat geçmişi gerçek yfinance verisine dayanır, ancak
+                        <strong>hiçbir gerçek emir gönderilmez, gerçek bir borsa/aracı kurum bağlantısı yoktur</strong>.
+                        Bakiye, pozisyonlar ve işlem geçmişi yalnızca bu tarayıcıda (localStorage) saklanır.
+                    </p>
+                </div>
+                <div class="indicator-modal-category">
+                    <div class="indicator-subgroup-label">Temel Özellikler</div>
+                    <p class="help-text">
+                        Gerçek zamanlıya yakın fiyat akışı (WebSocket), 8 grafik tipi ve 20'den fazla çizim aracı
+                        (sol dikey araç rayında — Çizgiler, Fibonacci, Gann, Elliott, Şekiller, Pozisyon),
+                        özelleştirilebilir teknik göstergeler, fiyat alarmları, Stop-Loss/Take-Profit ve OCO/Trailing
+                        Stop emirleri, hazır ve <strong>manuel (1-20x) kaldıraç/marj sistemi</strong>, sektörel
+                        BIST100 ısı haritası, aynı sembolü karşılaştırmalı gösteren <strong>Dual-Chart</strong>,
+                        2x2 çoklu grafik ızgarası, <strong>tam ekran grafik modu</strong> ve portföy performans
+                        takibi.
+                    </p>
+                </div>
+                <div class="indicator-modal-category">
+                    <div class="indicator-subgroup-label">Nereden Başlamalı?</div>
+                    <p class="help-text">
+                        Üstteki <strong>"Tanıtım Turu"</strong> butonu, tüm özellikleri sırayla gezen kısa bir
+                        sunum başlatır — özellikle ilk kez kullanıyorsanız veya birine göstereceksek buradan
+                        başlamanızı öneririz. Klavye kısayolları için <kbd>?</kbd> tuşuna basın.
+                    </p>
+                </div>
+                <div class="indicator-modal-category">
+                    <div class="indicator-subgroup-label">Veri Kaynağı Notu</div>
+                    <p class="help-text">
+                        Sembol adının yanındaki küçük nokta, o an ekrandaki fiyatın gerçek yfinance
+                        akışından mı (yeşil, yanıp sönen) yoksa yerel simülasyondan mı (gri) geldiğini gösterir.
+                        Backend sunucusu çalışmıyorsa veya bir sembol için canlı veri geçici olarak
+                        alınamıyorsa, uygulama otomatik olarak gerçekçi bir simülasyona döner — bu bir hata
+                        değildir, kasıtlı bir tasarım kararıdır.
+                        <strong>Önemli:</strong> yeşil noktayla gösterilen veri GERÇEKTİR ama
+                        <strong>anlık/gerçek-zamanlı değildir</strong> — yfinance ücretsiz veri kaynağı olduğundan
+                        fiyatlar genelde birkaç dakika gecikmeli gelir (borsanın kendi anlık/ücretli veri
+                        akışıyla birebir aynı milisaniyede değildir). Sembol başlığının altındaki F/K, piyasa
+                        değeri ve temettü verimi gibi temel (fundamental) bilgiler için de aynı gecikme geçerlidir.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drawing right-click context menu (Kopyala / Yapıştır / Sil) -->
+    <div class="drawing-context-menu" id="drawing-context-menu">
+        <button type="button" class="drawing-context-item" data-action="copy">Kopyala</button>
+        <button type="button" class="drawing-context-item" data-action="paste">Yapıştır</button>
+        <button type="button" class="drawing-context-item danger" data-action="delete">Sil</button>
+    </div>
+
+    <!-- (25 Ağustos 2026 — "ilk açılış hızı" incelemesi) Chart.js CDN scripti
+         buradan kaldırıldı: onu kullanan eski Canvas tabanlı backtest/analytics
+         çekmecesi (chartRenderer.js) 23 Temmuz 2026'da tamamen sökülmüştü ama
+         bu script etiketi o temizlikte unutulmuş — kod tabanında hiçbir
+         Chart(...) çağrısı kalmamıştı (grep ile doğrulandı). Diğer tüm
+         scriptler (config.js, tradingChart.js, tradingEngine.js...) ondan
+         SONRA sırayla yüklendiği için bu ~200KB'lık ölü kütüphane her sayfa
+         açılışında uygulamanın başlamasını gereksiz yere geciktiriyordu. -->
+    <!-- (27 Ağustos 2026 — yarışma günü hız hazırlığı: "ilk sayfa açılışını
+         hızlandır") Aşağıdaki 12 script etiketine `defer` eklendi. Öncesinde
+         hepsi SIRAYLA (biri bitmeden diğeri başlamadan) indiriliyordu —
+         özellikle 3 ayrı Firebase CDN isteği + Lightweight Charts + yerel
+         ~800KB'lık JS toplamı için bu gözle görülür bir gecikmeydi. `defer`
+         ile tarayıcı hepsini PARALEL indirir, yine BUGÜNKÜYLE AYNI sırada
+         (belgedeki sıra korunur) çalıştırır — DOMContentLoaded'dan hemen
+         önce. Bu güvenli: dosyanın en altındaki tek satır-içi <script>
+         zaten `window.addEventListener('DOMContentLoaded', ...)` içinde
+         TradingChart.init()/TradingEngine.init()/TourGuide.init()
+         çağırıyor — yani bu deferred scriptlerin hepsi çalışmayı bitirmeden
+         o kod hiç tetiklenmiyor, aralarındaki bağımlılık sırası bozulmuyor. -->
+    <!-- TradingView Lightweight Charts (used by the main trading chart) -->
+    <script defer src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- (6 Eylül 2026 — bağımsız geliştirme sandbox kopyası) Firebase SDK
+         script'leri VE finteclubBridge.js BİLİNÇLİ OLARAK KALDIRILDI. Bu
+         dosyalar FinTeClub ile AYNI Firestore projesine (finte-bf5f7)
+         bağlanıyor ve canlı yarışma ligi ile aynı admin kilidini / portföy
+         senkronizasyonunu paylaşıyordu — bu yüzden bu kopyayı ayrı bir
+         GitHub reposunda geliştirmek canlı sisteme dokunmuyor. Geri kalan
+         her şey (grafik, motor, arayüz — "sarı siyah" yapı) aynı şekilde
+         çalışmaya devam ediyor; window.FinteClubBridge çağrıları kodun
+         her yerinde zaten `typeof === 'function'` ile korunuyor. -->
+    <!-- Data Controller -->
+    <script defer src="config.js?v=20260828"></script>
+    <!-- (27 Ağustos 2026, dördüncü hız turu — "minify") Aşağıdaki 7 script
+         artık kaynak (.js) yerine küçültülmüş (.min.js) kopyalarını
+         yüklüyor — terser ile yorumlar/boşluklar temizlenip yerel
+         değişken/fonksiyon adları kısaltıldı (işlevsellik AYNI, sadece
+         indirme boyutu küçüldü — toplamda ~840KB'dan ~275KB'a). window.*
+         üzerinden dışa açılan (TradingChart, TradingEngine, DataController
+         vb.) isimler minifier tarafından HİÇ dokunulmuyor (sadece dosya
+         İÇİNDEKİ yerel isimler kısalıyor), bu yüzden dosyalar arası çağrılar
+         etkilenmiyor. Orijinal, yorumlu .js dosyaları DÜZENLEME kaynağı
+         olarak aynen duruyor — bundan sonra bir değişiklik yapılacaksa
+         orijinal .js dosyası düzenlenip .min.js YENİDEN üretilmeli (terser
+         ile), aksi halde canlıdaki kod eski kalır. -->
+    <script defer src="dataController.min.js?v=20260830a"></script>
+    <!-- (23 Temmuz 2026, on üçüncü oturum — "motoru güçlendirme" temizliği)
+         chartRenderer.js (Canvas tabanlı eski backtest grafik motoru) burada
+         yükleniyordu, ama onu kullanan TEK yer app.js'in artık ulaşılamayan
+         (tetikleyici düğmesi kaldırılmış) eski Canvas pipeline'ıydı — o kod
+         app.js'ten temizlendiği için bu dosya da artık hiçbir yerden
+         çağrılmıyor, script etiketi kaldırıldı. -->
+    <!-- TradingView-style Chart + Drawing Tools -->
+    <script defer src="tradingChart.min.js?v=20260902b"></script>
+    <!-- Demo Trading Engine (watchlist + paper trading) -->
+    <script defer src="tradingEngine.min.js?v=20260830b"></script>
+    <!-- Çoklu Grafik / 2x2 Izgara Düzeni (sade, salt-okunur genel bakış) -->
+    <script defer src="multiChartGrid.min.js?v=20260828"></script>
+    <!-- Feature Tour / Demo Wizard (opt-in guided walkthrough) -->
+    <script defer src="tourGuide.min.js?v=20260831a"></script>
+    <!-- Application Controller -->
+    <script defer src="app.min.js?v=20260828c"></script>
+    <!-- (6 Eylül 2026 — bağımsız sandbox) finteclubBridge.min.js buradan da
+         kaldırıldı — yukarıdaki notla aynı gerekçe. -->
+
+
+    <script>
+        function safeGetElement(id) {
+            return document.getElementById(id) || null;
+        }
+
+        window.safeGetElement = safeGetElement;
+
+        function setEngineStatusOnline() {
+            const engineStatus = safeGetElement('engine-status');
+            if (engineStatus) {
+                engineStatus.innerText = 'ONLINE';
+                engineStatus.style.color = '#2ecc71'; // Green
+            }
+        }
+
+        // Set online status and clean dashboard UI initially on load
+        window.addEventListener('DOMContentLoaded', () => {
+            setEngineStatusOnline();
+
+            // Initialize the new TradingView-style chart + demo trading engine
+            if (window.TradingChart) window.TradingChart.init();
+            if (window.TradingEngine) window.TradingEngine.init();
+            if (window.TourGuide) window.TourGuide.init();
+
+        });
+
+    </script>
+</body>
+</html>
