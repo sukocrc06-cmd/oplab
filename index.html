@@ -34,7 +34,7 @@
          devam eder, canlıya yansıyan düzeltme hiç görünmez.
     -->
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="styles.min.css?v=20260830d">
+    <link rel="stylesheet" href="styles.min.css?v=20260907a">
 </head>
 <body>
     <!-- (20 Ağustos 2026 — FinTeClub bağlantısı kullanıcı isteğiyle geri
@@ -49,18 +49,41 @@
         </div>
     </div>
 
-    <div class="ftc-login-modal-overlay hidden" id="ftc-login-modal-overlay">
-        <div class="ftc-login-modal-box">
-            <div class="ftc-login-modal-title">FinteLig Girişi</div>
-            <p class="ftc-login-modal-desc">FinteLig yarışmacısıysan, başvuruda belirlediğin e-posta ve şifreyle giriş yap. Yarışmacı değilsen giriş yapmadan da platformu kullanabilirsin.</p>
-            <div id="ftc-login-modal-form">
-                <input type="email" id="ftc-modal-login-email" class="form-input" placeholder="Kayıtlı e-postan..." autocomplete="username">
-                <input type="password" id="ftc-modal-login-password" class="form-input" placeholder="Şifren..." autocomplete="current-password">
-                <button type="button" class="btn btn-primary" style="width:100%;margin-top:6px;" id="ftc-modal-login-btn">Giriş Yap</button>
-                <div class="ftc-verify-status" id="ftc-modal-login-status"></div>
+    <!-- (7 Eylül 2026 — bağımsız e-posta girişi + senkronizasyon) Bu tam
+         ekran "giriş kapısı", eski FinTeClub'a özel giriş modalının
+         (ftc-login-modal-overlay, finteclubBridge.js'e bağımlıydı) yerini
+         alıyor. Kendi AYRI Firebase projemizle çalışıyor (canlı yarışma
+         sitesinin finte-bf5f7 projesiyle hiçbir ilgisi yok) — bkz.
+         oplabFirebaseConfig.js + oplabAuth.js. Firebase henüz
+         yapılandırılmadıysa (oplabFirebaseConfig.js'te yer tutucu değerler
+         duruyorsa) oplabAuth.js bu kapıyı hiç göstermeden otomatik olarak
+         misafir moduna düşer — site bu yüzden asla bozulmaz. Varsayılan
+         olarak GÖRÜNÜR başlıyor ("hidden" class'ı YOK) — oturum durumu
+         netleşene kadar altındaki uygulamanın yanlışlıkla görünmesini
+         önlemek için; oplabAuth.js gerekmediğine karar verince "hidden"
+         class'ını kendisi ekliyor. -->
+    <div class="oplab-auth-gate" id="oplab-auth-gate">
+        <div class="oplab-auth-card">
+            <div class="oplab-auth-logo"><span class="oplab-auth-logo-dot"></span>OPTIPULSELAB</div>
+            <p class="oplab-auth-subtitle">Devam etmek için giriş yap veya hesap oluştur — bakiyen, portföyün ve izleme listen cihazlar arasında senkronize olur.</p>
+
+            <div class="oplab-auth-tabs">
+                <button type="button" class="oplab-auth-tab active" id="oplab-tab-login" data-mode="login">Giriş Yap</button>
+                <button type="button" class="oplab-auth-tab" id="oplab-tab-signup" data-mode="signup">Kayıt Ol</button>
             </div>
-            <div id="ftc-login-modal-welcome" class="ftc-login-modal-welcome hidden"></div>
-            <button type="button" class="ftc-login-modal-skip" id="ftc-login-modal-skip">Giriş yapmadan devam et →</button>
+
+            <form id="oplab-auth-form" autocomplete="on">
+                <input type="email" id="oplab-auth-email" class="form-input" placeholder="E-posta adresin..." autocomplete="username" required>
+                <input type="password" id="oplab-auth-password" class="form-input" placeholder="Şifren (en az 6 karakter)..." autocomplete="current-password" required minlength="6" style="margin-top:10px;">
+                <input type="password" id="oplab-auth-password-confirm" class="form-input hidden" placeholder="Şifreni tekrar gir..." autocomplete="new-password" minlength="6" style="margin-top:10px;">
+                <button type="submit" class="btn btn-primary" id="oplab-auth-submit" style="width:100%;margin-top:14px;">Giriş Yap</button>
+            </form>
+
+            <button type="button" class="oplab-auth-forgot" id="oplab-auth-forgot">Şifremi unuttum</button>
+            <div class="oplab-auth-status" id="oplab-auth-status"></div>
+
+            <div class="oplab-auth-divider"><span>veya</span></div>
+            <button type="button" class="oplab-auth-skip" id="oplab-auth-skip">Giriş yapmadan devam et (misafir) →</button>
         </div>
     </div>
 
@@ -248,19 +271,17 @@
                             <label class="profile-settings-label" for="profile-name-input">Profil Ayarları — İsim</label>
                             <input type="text" id="profile-name-input" class="form-input profile-name-input" placeholder="İsminizi girin..." maxlength="40">
                         </div>
-                        <!-- (20 Ağustos 2026 — FinTeClub bağlantısı kullanıcı isteğiyle
-                             geri getirildi) 17 Ağustos'ta kaldırılmış olan "Girişi" bölümü
-                             (ftc-verify-section) yeniden eklendi — finteclubBridge.js'in
-                             init() içindeki loginBtn/logoutBtn/emailInput/pwInput
-                             wiring'i bu ID'leri arıyor. -->
+                        <!-- (7 Eylül 2026 — bağımsız e-posta girişi + senkronizasyon)
+                             Eski FinteLig'e özel "Girişi" bölümü (ftc-verify-section,
+                             finteclubBridge.js'e bağımlıydı) kaldırıldı — yerine kendi
+                             ayrı Firebase Authentication'ımızla çalışan hesap bölümü
+                             geldi (bkz. oplabAuth.js). -->
                         <div class="header-menu-divider"></div>
-                        <div class="profile-panel-section" id="ftc-verify-section">
-                            <label class="profile-settings-label" for="ftc-login-email">FinteLig Girişi</label>
-                            <input type="email" id="ftc-login-email" class="form-input profile-name-input" placeholder="Kayıtlı e-postan..." autocomplete="username">
-                            <input type="password" id="ftc-login-password" class="form-input profile-name-input" placeholder="Şifren..." style="margin-top:8px;" autocomplete="current-password">
-                            <button type="button" id="ftc-login-btn" class="btn btn-primary" style="width:100%;margin-top:10px;">Giriş Yap</button>
-                            <button type="button" id="ftc-logout-btn" class="btn btn-secondary hidden" style="width:100%;margin-top:8px;">Çıkış Yap</button>
-                            <div class="ftc-verify-status" id="ftc-verify-status"></div>
+                        <div class="profile-panel-section" id="oplab-account-section">
+                            <label class="profile-settings-label">Hesap</label>
+                            <div class="oplab-account-status" id="oplab-account-status">Misafir modu — veriler sadece bu tarayıcıda saklanıyor.</div>
+                            <button type="button" id="oplab-account-login-btn" class="btn btn-primary" style="width:100%;margin-top:10px;">Giriş Yap / Kayıt Ol</button>
+                            <button type="button" id="oplab-account-logout-btn" class="btn btn-secondary hidden" style="width:100%;margin-top:10px;">Çıkış Yap</button>
                         </div>
                     </div>
                 </div>
@@ -1713,8 +1734,8 @@
          o kod hiç tetiklenmiyor, aralarındaki bağımlılık sırası bozulmuyor. -->
     <!-- TradingView Lightweight Charts (used by the main trading chart) -->
     <script defer src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
-    <!-- (6 Eylül 2026 — bağımsız geliştirme sandbox kopyası) Firebase SDK
-         script'leri VE finteclubBridge.js BİLİNÇLİ OLARAK KALDIRILDI. Bu
+    <!-- (6 Eylül 2026 — bağımsız geliştirme sandbox kopyası) Eski Firebase SDK
+         script'leri VE finteclubBridge.js BİLİNÇLİ OLARAK KALDIRILDI. O
          dosyalar FinTeClub ile AYNI Firestore projesine (finte-bf5f7)
          bağlanıyor ve canlı yarışma ligi ile aynı admin kilidini / portföy
          senkronizasyonunu paylaşıyordu — bu yüzden bu kopyayı ayrı bir
@@ -1724,6 +1745,17 @@
          her yerinde zaten `typeof === 'function'` ile korunuyor. -->
     <!-- Data Controller -->
     <script defer src="config.js?v=20260828"></script>
+    <!-- (7 Eylül 2026 — bağımsız e-posta girişi + senkronizasyon) Firebase
+         SDK'ları burada YENİDEN eklendi, ama finte-bf5f7 DEĞİL — tamamen
+         AYRI, sadece bu "oplab" kopyası için kurulan yeni bir Firebase
+         projesine bağlanıyor (bkz. oplabFirebaseConfig.js). Gerçek proje
+         bilgilerini oplabFirebaseConfig.js'e yapıştırana kadar oplabAuth.js
+         bunu algılayıp misafir moduna düşer, hiçbir şey bozulmaz. -->
+    <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script defer src="oplabFirebaseConfig.js?v=20260907a"></script>
+    <script defer src="oplabAuth.min.js?v=20260907a"></script>
     <!-- (27 Ağustos 2026, dördüncü hız turu — "minify") Aşağıdaki 7 script
          artık kaynak (.js) yerine küçültülmüş (.min.js) kopyalarını
          yüklüyor — terser ile yorumlar/boşluklar temizlenip yerel
@@ -1776,11 +1808,22 @@
         window.addEventListener('DOMContentLoaded', () => {
             setEngineStatusOnline();
 
-            // Initialize the new TradingView-style chart + demo trading engine
-            if (window.TradingChart) window.TradingChart.init();
-            if (window.TradingEngine) window.TradingEngine.init();
-            if (window.TourGuide) window.TourGuide.init();
-
+            // (7 Eylül 2026 — bağımsız e-posta girişi + senkronizasyon) Motor
+            // artık DOMContentLoaded'da DOĞRUDAN başlamıyor — oplabAuth.js'in
+            // "başlat" onayını bekliyor (oturum durumu netleşene / Firestore'dan
+            // veri senkronize edilene kadar). __oplabRegisterStart tanımlı
+            // değilse (oplabAuth.js hiç yüklenemediyse) eskisi gibi hemen
+            // başlar, yani bu değişiklik motoru asla kilitli bırakmaz.
+            function startEngines() {
+                if (window.TradingChart) window.TradingChart.init();
+                if (window.TradingEngine) window.TradingEngine.init();
+                if (window.TourGuide) window.TourGuide.init();
+            }
+            if (typeof window.__oplabRegisterStart === 'function') {
+                window.__oplabRegisterStart(startEngines);
+            } else {
+                startEngines();
+            }
         });
 
     </script>
