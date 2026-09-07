@@ -31,6 +31,11 @@
     // ÖNEMLİ: Render'ın ücretsiz katmanı 15 dakika boşta kalınca uyuyor,
     // ilk istekte ~1 dakika uyanma süresi olabiliyor — bir sunumdan hemen
     // önce siteyi bir kez açıp "ısıtmak" bu gecikmeyi önler.
+    // (7 Eylül 2026 — bağımsız "oplab" sandbox kopyası) Bu kopya artık
+    // canlı yarışma sitesiyle (rekabet-testi) AYNI backend'i PAYLAŞMIYOR.
+    // Kendi ayrı Render servisine (oplab.onrender.com) bağlandı — kod,
+    // süreç, bellek, hepsi tamamen ayrı. Canlı yarışma sitesindeki hiçbir
+    // şeyi etkilemez, oradan da hiçbir şekilde etkilenmez.
     // (22 Temmuz 2026, on ikinci oturum, altıncı tur — "hisse logoları")
     // İlk denemede Clearbit'in ücretsiz logo servisi kullanılmıştı, ama
     // Clearbit bu servisi 8 Aralık 2025'te TAMAMEN kapattı — bu yüzden
@@ -42,8 +47,8 @@
     // "Safe to share publicly" olarak işaretli). Logo.dev'in "Secret key"i
     // KESİNLİKLE buraya veya herhangi bir frontend dosyasına yazılmamalı.
     window.OPTIPULSE_CONFIG = {
-        BACKEND_HTTP: 'https://rekabet-testi.onrender.com',
-        BACKEND_WS: 'wss://rekabet-testi.onrender.com',
+        BACKEND_HTTP: 'https://oplab.onrender.com',
+        BACKEND_WS: 'wss://oplab.onrender.com',
         LOGO_DEV_TOKEN: 'pk_WSsW7uNMSGWLW7W6gsrQcg'
     };
 
