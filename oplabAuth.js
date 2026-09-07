@@ -74,7 +74,19 @@
     const PORTFOLIO_KEY = 'optipulselab_paper_portfolio_v1';
     const WATCHLIST_KEY = 'optipulselab_watchlist_symbols_v1';
     const PROFILE_NAME_KEY = 'optipulselab_profile_name_v1';
-    const GUEST_FLAG_KEY = 'oplab_guest_mode_v1';
+    // (7 Eylül 2026, ikinci tur) ÖNEMLİ DEĞİŞİKLİK: "misafir modu" artık
+    // localStorage'da HİÇ hatırlanmıyor — kullanıcı isteği üzerine, siteye
+    // her girişte (sayfa her yenilendiğinde) gerçek bir oturum yoksa giriş
+    // kapısı MUTLAKA yeniden gösteriliyor; eskiden burada bir
+    // `oplab_guest_mode_v1` bayrağı bu kontrolü atlatıp otomatik misafir
+    // moduna düşüyordu, o mekanizma tamamen kaldırıldı. Gerçek (Appwrite
+    // oturumu olan) kullanıcılar için hâlâ otomatik devam ediliyor — bu
+    // sadece misafir/anonim tarafı için geçerli.
+    // Ayrıca misafir modunda artık HİÇ sanal bakiye verilmiyor (bkz.
+    // finishAsGuest() — portföy her seferinde 0 bakiyeyle sıfırlanıyor);
+    // ₺100.000 demo bakiyesi artık SADECE gerçek, giriş yapmış hesaplara
+    // özel — bu, misafir modunun yarışma verisini/kimliğini atlatan bir
+    // "bedava bakiye" yolu olmasını engelliyor.
     // localStorage anahtarı -> Appwrite belge alanı eşlemesi. Her ikisi de
     // ham STRING olarak taşınıyor (JSON.parse/stringify YOK) — böylece
     // motor kodunun bu değerleri hangi formatta sakladığından (JSON dizisi,
@@ -270,7 +282,6 @@
 
     if (accountLoginBtn) {
         accountLoginBtn.addEventListener('click', () => {
-            safeSetRaw(GUEST_FLAG_KEY, '');
             clearStatus();
             showGate();
         });
@@ -280,7 +291,6 @@
             if (!account) return;
             accountLogoutBtn.disabled = true;
             account.deleteSession('current').then(() => {
-                safeSetRaw(GUEST_FLAG_KEY, '');
                 location.reload();
             }).catch(e => {
                 accountLogoutBtn.disabled = false;
@@ -290,9 +300,17 @@
     }
 
     /* ────────────── Giriş kapısı: form / buton olayları ────────────── */
+    // (7 Eylül 2026) Misafir modunda artık sanal bakiye YOK — portföy her
+    // "misafir olarak devam et" tıklamasında (ya da 6sn güvenlik zaman
+    // aşımında) sıfır bakiyeyle baştan yazılıyor. Motor kodu (tradingEngine.js)
+    // bu localStorage anahtarını olduğu gibi okuyor, hiç değiştirilmedi.
+    const GUEST_ZERO_PORTFOLIO = JSON.stringify({
+        balance: 0, positions: {}, history: [], pendingOrders: [],
+        viopPositions: {}, viopHistory: [], viopPendingOrders: []
+    });
     function finishAsGuest(opts) {
         clearSafetyTimer();
-        safeSetRaw(GUEST_FLAG_KEY, '1');
+        safeSetRaw(PORTFOLIO_KEY, GUEST_ZERO_PORTFOLIO);
         hideGate();
         renderAccountGuest();
         releaseStart();
@@ -388,16 +406,17 @@
             })
             .catch(() => {
                 currentUser = null;
-                if (safeGet(GUEST_FLAG_KEY) === '1') {
-                    finishAsGuest({ silent: true });
-                } else {
-                    clearSafetyTimer();
-                    showGate();
-                    renderAccountGuest();
-                    // NOT: releaseStart() burada ÇAĞRILMIYOR — motor,
-                    // kullanıcı giriş yapana veya "misafir olarak devam
-                    // et"e basana kadar kasıtlı olarak beklemede kalıyor.
-                }
+                // (7 Eylül 2026) Eskiden burada bir "misafir modu hatırlama"
+                // bayrağı kontrol edilip otomatik misafir moduna düşülüyordu.
+                // Kullanıcı isteği üzerine kaldırıldı: gerçek bir Appwrite
+                // oturumu yoksa (yani kullanıcı gerçekten giriş yapmamışsa)
+                // kapı HER SEFERİNDE yeniden gösterilir.
+                clearSafetyTimer();
+                showGate();
+                renderAccountGuest();
+                // NOT: releaseStart() burada ÇAĞRILMIYOR — motor,
+                // kullanıcı giriş yapana veya "misafir olarak devam
+                // et"e basana kadar kasıtlı olarak beklemede kalıyor.
             });
     }
 
