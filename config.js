@@ -31,11 +31,20 @@
     // ÖNEMLİ: Render'ın ücretsiz katmanı 15 dakika boşta kalınca uyuyor,
     // ilk istekte ~1 dakika uyanma süresi olabiliyor — bir sunumdan hemen
     // önce siteyi bir kez açıp "ısıtmak" bu gecikmeyi önler.
-    // (7 Eylül 2026 — bağımsız "oplab" sandbox kopyası) Bu kopya artık
-    // canlı yarışma sitesiyle (rekabet-testi) AYNI backend'i PAYLAŞMIYOR.
-    // Kendi ayrı Render servisine (oplab.onrender.com) bağlandı — kod,
-    // süreç, bellek, hepsi tamamen ayrı. Canlı yarışma sitesindeki hiçbir
-    // şeyi etkilemez, oradan da hiçbir şekilde etkilenmez.
+    // (7 Eylül 2026, ilk deneme — SONRADAN GERİ ALINDI) Bu kopya bir ara
+    // kendi ayrı Render servisine (oplab.onrender.com) bağlanmıştı. Ama
+    // Render'ın ücretsiz planında TÜM ücretsiz servisler PAYLAŞIMLI aylık
+    // 750 "instance saati" hakkına sahip — iki ayrı backend'i birden 7/24
+    // uyanık tutmaya çalışmak bu kotayı ~15-16 günde tüketip Render'ın O AY
+    // İKİ servisi de (yarışma sitesi dahil!) durdurmasına yol açardı. main.py
+    // kodu iki tarafta da zaten BAYT BAYTINA AYNI (sadece herkese açık,
+    // kimseye özel olmayan bir piyasa verisi API'si) — ayrı bir backend'e
+    // hiç gerçek ihtiyaç yoktu. Bu yüzden buradaki adres BİLEREK tekrar
+    // rekabet-testi'nin backend'ine döndürüldü: o servis TEK BAŞINA zaten
+    // aylarca kesintisiz, ücretsiz çalışıyordu (750 saat ~31 günlük bir ay
+    // için rahat yetiyor). Frontend'ler (bu klasördeki dosyalar) hâlâ
+    // rekabet-testi'nden TAMAMEN ayrı ve bağımsız — sadece ikisi de aynı
+    // (paylaşılan, salt-okunur) piyasa verisi sunucusuna bağlanıyor.
     // (22 Temmuz 2026, on ikinci oturum, altıncı tur — "hisse logoları")
     // İlk denemede Clearbit'in ücretsiz logo servisi kullanılmıştı, ama
     // Clearbit bu servisi 8 Aralık 2025'te TAMAMEN kapattı — bu yüzden
@@ -47,8 +56,8 @@
     // "Safe to share publicly" olarak işaretli). Logo.dev'in "Secret key"i
     // KESİNLİKLE buraya veya herhangi bir frontend dosyasına yazılmamalı.
     window.OPTIPULSE_CONFIG = {
-        BACKEND_HTTP: 'https://oplab.onrender.com',
-        BACKEND_WS: 'wss://oplab.onrender.com',
+        BACKEND_HTTP: 'https://rekabet-testi.onrender.com',
+        BACKEND_WS: 'wss://rekabet-testi.onrender.com',
         LOGO_DEV_TOKEN: 'pk_WSsW7uNMSGWLW7W6gsrQcg'
     };
 
