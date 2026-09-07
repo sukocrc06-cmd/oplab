@@ -52,16 +52,18 @@
     <!-- (7 Eylül 2026 — bağımsız e-posta girişi + senkronizasyon) Bu tam
          ekran "giriş kapısı", eski FinTeClub'a özel giriş modalının
          (ftc-login-modal-overlay, finteclubBridge.js'e bağımlıydı) yerini
-         alıyor. Kendi AYRI Firebase projemizle çalışıyor (canlı yarışma
-         sitesinin finte-bf5f7 projesiyle hiçbir ilgisi yok) — bkz.
-         oplabFirebaseConfig.js + oplabAuth.js. Firebase henüz
-         yapılandırılmadıysa (oplabFirebaseConfig.js'te yer tutucu değerler
-         duruyorsa) oplabAuth.js bu kapıyı hiç göstermeden otomatik olarak
-         misafir moduna düşer — site bu yüzden asla bozulmaz. Varsayılan
-         olarak GÖRÜNÜR başlıyor ("hidden" class'ı YOK) — oturum durumu
-         netleşene kadar altındaki uygulamanın yanlışlıkla görünmesini
-         önlemek için; oplabAuth.js gerekmediğine karar verince "hidden"
-         class'ını kendisi ekliyor. -->
+         alıyor. Kendi AYRI Appwrite projemizle çalışıyor (canlı yarışma
+         sitesinin Firebase/finte-bf5f7 projesiyle hiçbir ilgisi yok;
+         Firebase'de Google Cloud'un 401 hatası, Supabase'de proje limiti
+         yüzünden sonunda Appwrite'a geçildi) — bkz. oplabAppwriteConfig.js
+         + oplabAuth.js. Appwrite henüz yapılandırılmadıysa
+         (oplabAppwriteConfig.js'te yer tutucu değerler duruyorsa)
+         oplabAuth.js bu kapıyı hiç göstermeden otomatik olarak misafir
+         moduna düşer — site bu yüzden asla bozulmaz. Varsayılan olarak
+         GÖRÜNÜR başlıyor ("hidden" class'ı YOK) — oturum durumu netleşene
+         kadar altındaki uygulamanın yanlışlıkla görünmesini önlemek için;
+         oplabAuth.js gerekmediğine karar verince "hidden" class'ını
+         kendisi ekliyor. -->
     <div class="oplab-auth-gate" id="oplab-auth-gate">
         <div class="oplab-auth-card">
             <div class="oplab-auth-logo"><span class="oplab-auth-logo-dot"></span>OPTIPULSELAB</div>
@@ -74,8 +76,8 @@
 
             <form id="oplab-auth-form" autocomplete="on">
                 <input type="email" id="oplab-auth-email" class="form-input" placeholder="E-posta adresin..." autocomplete="username" required>
-                <input type="password" id="oplab-auth-password" class="form-input" placeholder="Şifren (en az 6 karakter)..." autocomplete="current-password" required minlength="6" style="margin-top:10px;">
-                <input type="password" id="oplab-auth-password-confirm" class="form-input hidden" placeholder="Şifreni tekrar gir..." autocomplete="new-password" minlength="6" style="margin-top:10px;">
+                <input type="password" id="oplab-auth-password" class="form-input" placeholder="Şifren (en az 8 karakter)..." autocomplete="current-password" required minlength="8" style="margin-top:10px;">
+                <input type="password" id="oplab-auth-password-confirm" class="form-input hidden" placeholder="Şifreni tekrar gir..." autocomplete="new-password" minlength="8" style="margin-top:10px;">
                 <button type="submit" class="btn btn-primary" id="oplab-auth-submit" style="width:100%;margin-top:14px;">Giriş Yap</button>
             </form>
 
@@ -274,7 +276,7 @@
                         <!-- (7 Eylül 2026 — bağımsız e-posta girişi + senkronizasyon)
                              Eski FinteLig'e özel "Girişi" bölümü (ftc-verify-section,
                              finteclubBridge.js'e bağımlıydı) kaldırıldı — yerine kendi
-                             ayrı Firebase Authentication'ımızla çalışan hesap bölümü
+                             ayrı Appwrite Authentication'ımızla çalışan hesap bölümü
                              geldi (bkz. oplabAuth.js). -->
                         <div class="header-menu-divider"></div>
                         <div class="profile-panel-section" id="oplab-account-section">
@@ -1745,17 +1747,18 @@
          her yerinde zaten `typeof === 'function'` ile korunuyor. -->
     <!-- Data Controller -->
     <script defer src="config.js?v=20260828"></script>
-    <!-- (7 Eylül 2026 — bağımsız e-posta girişi + senkronizasyon) Firebase
-         SDK'ları burada YENİDEN eklendi, ama finte-bf5f7 DEĞİL — tamamen
-         AYRI, sadece bu "oplab" kopyası için kurulan yeni bir Firebase
-         projesine bağlanıyor (bkz. oplabFirebaseConfig.js). Gerçek proje
-         bilgilerini oplabFirebaseConfig.js'e yapıştırana kadar oplabAuth.js
-         bunu algılayıp misafir moduna düşer, hiçbir şey bozulmaz. -->
-    <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script defer src="oplabFirebaseConfig.js?v=20260907a"></script>
-    <script defer src="oplabAuth.min.js?v=20260907a"></script>
+    <!-- (7 Eylül 2026 — bağımsız e-posta girişi + senkronizasyon, ÜÇÜNCÜ ve
+         son deneme) Sıra: Firebase (Google Cloud Console'un kendi tarafında
+         çözülemeyen "401 — invalid authentication credentials" hatası —
+         proje/Firestore/Rules oluşturmanın HEPSİNDE) → Supabase (hesabın
+         zaten 2 ücretsiz proje limitine ulaşmış olması yeni proje
+         açılmasını engelledi) → Appwrite. Appwrite bu ikisinden de
+         bağımsız, ayrı bir servis/hesap — hem kimlik doğrulama hem
+         veritabanı tek yerde. Bkz. oplabAppwriteConfig.js. Gerçek proje
+         bilgileri zaten oplabAppwriteConfig.js'e işlendi. -->
+    <script defer src="https://cdn.jsdelivr.net/npm/appwrite@16"></script>
+    <script defer src="oplabAppwriteConfig.js?v=20260907a"></script>
+    <script defer src="oplabAuth.min.js?v=20260907c"></script>
     <!-- (27 Ağustos 2026, dördüncü hız turu — "minify") Aşağıdaki 7 script
          artık kaynak (.js) yerine küçültülmüş (.min.js) kopyalarını
          yüklüyor — terser ile yorumlar/boşluklar temizlenip yerel
